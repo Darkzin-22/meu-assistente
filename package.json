@@ -1,0 +1,38 @@
+{
+  "name": "meu-assistente",
+  "version": "1.0.0",
+  "description": "Assistente pessoal: finanças e agenda inteligente (PWA)",
+  "scripts": {
+    "dev": "node --watch server/index.js",
+    "dev:web": "vite web",
+    "build": "vite build web",
+    "start": "node server/index.js",
+    "test": "node --test test/*.test.js",
+    "e2e": "node test-e2e/run.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.13.0",
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/multipart": "^10.1.9",
+    "@fastify/rate-limit": "^11.3.0",
+    "@fastify/static": "^10.1.12",
+    "better-sqlite3": "^13.2.0",
+    "exceljs": "^4.4.0",
+    "fastify": "^5.12.8",
+    "luxon": "^3.7.2",
+    "web-push": "^4.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.3.0",
+    "lucide-react": "^1.78.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "vite": "^8.3.8"
+  },
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
