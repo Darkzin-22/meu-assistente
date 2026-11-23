@@ -1,6 +1,6 @@
 # Deploy na Fly.io: `fly launch --no-deploy` (aceite este arquivo), depois
 # `fly volumes create dados --size 1` e `fly deploy`.
-app = "meu-assistente"
+app = "meu-assistente"   # substituído pelo FLY_APP_NAME na publicação automática
 primary_region = "gru"   # São Paulo
 
 [build]

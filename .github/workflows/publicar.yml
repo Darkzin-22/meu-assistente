@@ -1,0 +1,65 @@
+# Publica o app na Fly.io automaticamente a cada envio para a branch main.
+# Requer o segredo FLY_API_TOKEN no GitHub (Settings › Secrets and variables › Actions).
+name: Publicar na Fly.io
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: publicar
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP: ${{ vars.FLY_APP_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Testes (não publica se algo falhar)
+        run: npm test
+
+      - name: Conferir configuração
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then echo "::error::Falta o segredo FLY_API_TOKEN (veja docs/PUBLICAR.md)."; exit 1; fi
+          if [ -z "$FLY_APP" ]; then echo "::error::Falta a variável FLY_APP_NAME (veja docs/PUBLICAR.md)."; exit 1; fi
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Criar o app e o volume de dados (só na primeira vez)
+        run: |
+          if ! flyctl status -a "$FLY_APP" >/dev/null 2>&1; then
+            flyctl apps create "$FLY_APP" --org personal
+          fi
+          if ! flyctl volumes list -a "$FLY_APP" --json | grep -q '"dados"'; then
+            flyctl volumes create dados --region gru --size 1 -a "$FLY_APP" --yes
+          fi
+
+      - name: Chaves opcionais (IA e transcrição)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -- 
+          [ -n "$ANTHROPIC_API_KEY" ] && set -- "$@" "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
+          [ -n "$GROQ_API_KEY" ] && set -- "$@" "GROQ_API_KEY=$GROQ_API_KEY"
+          [ -n "$OPENAI_API_KEY" ] && set -- "$@" "OPENAI_API_KEY=$OPENAI_API_KEY"
+          if [ "$#" -gt 0 ]; then flyctl secrets set "$@" --stage -a "$FLY_APP"; else echo "Nenhuma chave opcional — usando interpretador local e voz do aparelho."; fi
+
+      - name: Publicar
+        run: flyctl deploy --remote-only -a "$FLY_APP"
+
+      - name: Endereço do app
+        run: |
+          echo "### 📱 Abra no Safari do iPhone: https://$FLY_APP.fly.dev" >> "$GITHUB_STEP_SUMMARY"

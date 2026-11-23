@@ -79,7 +79,10 @@ npm start          # http://localhost:3000
 ```
 No computador (Chrome/Edge/Safari), `localhost` já permite microfone e notificações.
 
-### Colocar no ar para usar no iPhone (exemplo com Fly.io)
+### Publicar sem instalar nada (recomendado)
+Siga **[docs/PUBLICAR.md](docs/PUBLICAR.md)**: o GitHub testa e publica o app na Fly.io sozinho; você só cria as contas e cola um token.
+
+### Colocar no ar pela linha de comando (exemplo com Fly.io)
 1. Crie uma conta em fly.io e instale o `flyctl`.
 2. Na pasta do projeto:
    ```bash
