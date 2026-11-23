@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { audit } from './db.js';
+import { audit } from './db-util.js';
 import { AppError, notFound } from './errors.js';
 import { categoryIdOrDefault } from './finance.js';
 import { classifyEvent, iconForEvent, norm } from './categories.js';

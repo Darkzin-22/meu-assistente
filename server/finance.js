@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { DateTime } from 'luxon';
-import { audit } from './db.js';
+import { audit } from './db-util.js';
 import { AppError, notFound } from './errors.js';
 import { norm } from './categories.js';
 import { splitInstallments, brl } from './money.js';

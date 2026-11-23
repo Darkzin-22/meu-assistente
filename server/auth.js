@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { promisify } from 'node:util';
 import { DateTime } from 'luxon';
 import { config } from './config.js';
-import { seedCategories, audit } from './db.js';
+import { seedCategories, audit } from './db-util.js';
 import { AppError } from './errors.js';
 import { nowUtcIso } from './time.js';
 

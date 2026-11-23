@@ -14,6 +14,7 @@ import * as rec from './recurring.js';
 import * as ag from './agenda.js';
 import * as push from './push.js';
 import * as ex from './exporters.js';
+import { expensesXlsx } from './xlsx.js';
 import { runCommand, executeAction, aiMode, _engineInfo } from './nlp/execute.js';
 import { transcribe, transcriptionAvailable } from './transcribe.js';
 import { toCents } from './money.js';
@@ -203,7 +204,7 @@ export async function buildApp(db, { logger = false, serveStatic = true } = {}) 
   });
   app.get('/api/export/expenses.xlsx', async (req, reply) => {
     reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet').header('Content-Disposition', `attachment; filename="despesas-${today(req.user.timezone)}.xlsx"`);
-    return ex.expensesXlsx(db, req.user.id, expFilters(req.query));
+    return expensesXlsx(db, req.user.id, expFilters(req.query));
   });
 
   // ---------------------------------------------------------------- recorrências
