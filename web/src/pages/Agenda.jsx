@@ -198,7 +198,7 @@ function EventDetail({ id, onClose }) {
             {e.status === 'scheduled' && <button className="action" onClick={() => act(() => api.post(`/api/events/${e.id}/complete`), 'Marcado como concluído.')}><Check size={20} />Concluir</button>}
             {e.status !== 'scheduled' && <button className="action" onClick={() => act(() => api.post(`/api/events/${e.id}/reopen`), 'Compromisso reativado.')}><RotateCcw size={20} />Reativar</button>}
             {e.status === 'scheduled' && <button className="action warn" onClick={async () => { if (await confirm(`Desmarcar "${e.title}"? Os lembretes serão cancelados.`, { confirmLabel: 'Desmarcar' })) act(() => api.post(`/api/events/${e.id}/cancel`), 'Compromisso desmarcado.'); }}><X size={20} />Desmarcar</button>}
-            <a className="action" href={`/api/events/${e.id}/ics`}><CalendarPlus size={20} />Calendário do iPhone</a>
+            <button className="action" onClick={() => api.download(`/api/events/${e.id}/ics`).catch((err) => toast(err.message, { tone: 'error' }))}><CalendarPlus size={20} />Calendário do iPhone</button>
             <button className="action danger" onClick={async () => { if (await confirm(`Excluir "${e.title}"?`, { confirmLabel: 'Excluir' })) { await act(() => api.del(`/api/events/${e.id}`), 'Compromisso excluído.'); onClose(); } }}><Trash2 size={20} />Excluir</button>
           </div>
         </div>

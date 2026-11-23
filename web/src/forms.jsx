@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Trash2, ImagePlus, X } from 'lucide-react';
-import { api, uid, toCents, centsToInput, todayISO } from './api.js';
+import { api, uid, toCents, centsToInput, todayISO, IS_LOCAL } from './api.js';
 import { Sheet, Field, Spinner, useToast, useConfirm, Toggle } from './ui.jsx';
 import { Icon, ICON_KEYS } from './icons.jsx';
 import { useApp } from './context.js';
@@ -129,7 +129,7 @@ export function EventForm({ event, defaultDate, onDone }) {
         if (r.queued) toast('Sem internet: compromisso salvo e será sincronizado.', { tone: 'warn' });
         else {
           const n = r.reminders.filter((x) => x.status === 'pending').length;
-          toast(`Agendado. ${n} lembrete(s) programado(s).`, { tone: 'ok' });
+          toast(IS_LOCAL ? 'Agendado. Toque em "Calendário" para ativar os alarmes no iPhone.' : `Agendado. ${n} lembrete(s) programado(s).`, { tone: 'ok', duration: 8000, action: body.time ? { label: 'Calendário', onClick: () => api.download(`/api/events/${r.event.id}/ics`) } : undefined });
           r.warnings?.forEach((w) => toast(w, { tone: 'warn' }));
         }
       } else {

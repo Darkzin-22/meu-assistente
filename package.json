@@ -8,7 +8,9 @@
     "build": "vite build web",
     "start": "node server/index.js",
     "test": "node --test test/*.test.js",
-    "e2e": "node test-e2e/run.mjs"
+    "e2e": "node test-e2e/run.mjs",
+    "build:local": "VITE_LOCAL=1 vite build web",
+    "e2e:local": "node test-e2e/local.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.13.0",

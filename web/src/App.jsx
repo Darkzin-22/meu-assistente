@@ -52,10 +52,10 @@ function Root() {
   if (!status) return <div className="splash"><Spinner size={32} /></div>;
   if (status.error && !status.offline) return <div className="splash"><p>{status.error}</p><button className="btn primary" onClick={load}>Tentar novamente</button></div>;
   if (status.user || status.offline) return <Main onLogout={load} offlineBoot={status.offline} />;
-  return <Auth setup={status.needsSetup} allowSignup={status.allowSignup} onDone={load} />;
+  return <Auth setup={status.needsSetup} allowSignup={status.allowSignup} local={status.local} onDone={load} />;
 }
 
-function Auth({ setup, allowSignup, onDone }) {
+function Auth({ setup, allowSignup, local, onDone }) {
   const [mode, setMode] = useState(setup ? 'register' : 'login');
   const [f, setF] = useState({ name: '', email: '', password: '' });
   const [err, setErr] = useState('');
@@ -73,13 +73,13 @@ function Auth({ setup, allowSignup, onDone }) {
     <div className="auth">
       <div className="auth-logo"><IconBadge name="sparkles" color="linear-gradient(135deg,#5E5CE6,#BF5AF2)" size={72} /></div>
       <h1>Meu Assistente</h1>
-      <p className="muted">{mode === 'register' ? 'Crie sua conta para começar. Seus dados ficam protegidos por senha.' : 'Entre para acessar suas finanças e sua agenda.'}</p>
+      <p className="muted">{local ? 'Suas finanças e sua agenda, por voz. Tudo fica guardado só neste aparelho.' : mode === 'register' ? 'Crie sua conta para começar. Seus dados ficam protegidos por senha.' : 'Entre para acessar suas finanças e sua agenda.'}</p>
       <form onSubmit={submit} className="auth-form">
-        {mode === 'register' && <input placeholder="Seu nome" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="name" />}
-        <input type="email" placeholder="E-mail" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="username" />
-        <input type="password" placeholder="Senha (mín. 8 caracteres)" required minLength={8} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />
+        {mode === 'register' && <input placeholder={local ? 'Como você quer ser chamado?' : 'Seu nome'} required={local} value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} autoComplete="given-name" />}
+        {!local && <input type="email" placeholder="E-mail" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} autoComplete="username" />}
+        {!local && <input type="password" placeholder="Senha (mín. 8 caracteres)" required minLength={8} value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete={mode === 'register' ? 'new-password' : 'current-password'} />}
         {err && <div className="form-error">{err}</div>}
-        <button className="btn primary big" disabled={busy}>{busy ? <Spinner size={18} /> : mode === 'register' ? 'Criar conta' : 'Entrar'}</button>
+        <button className="btn primary big" disabled={busy}>{busy ? <Spinner size={18} /> : local ? 'Começar' : mode === 'register' ? 'Criar conta' : 'Entrar'}</button>
       </form>
       {!setup && allowSignup && <button className="link-btn" onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>{mode === 'login' ? 'Criar uma conta' : 'Já tenho conta'}</button>}
     </div>

@@ -1,6 +1,24 @@
 # Meu Assistente — Finanças e Agenda Inteligente
 
-Um app pessoal para o iPhone (e o computador) em que você **segura o microfone, fala** e a despesa, a assinatura ou o compromisso é salvo no lugar certo. Os lembretes chegam **mesmo com o app fechado**.
+Um app pessoal para o iPhone (e o computador) em que você **segura o microfone, fala** e a despesa, a assinatura ou o compromisso é salvo no lugar certo.
+
+## 📱 Instalar no iPhone (grátis)
+
+1. Abra **https://darkzin-22.github.io/meu-assistente/** no **Safari**.
+2. Toque em **Compartilhar › Adicionar à Tela de Início**.
+3. Abra pelo ícone e diga seu nome.
+
+Esta é a **versão local**: roda inteira no iPhone, sem servidor e sem custo. Os dados ficam só no aparelho (faça backups em Ajustes). Os lembretes funcionam pelo **Calendário do iPhone**: ao criar um compromisso, toque em **Adicionar ao Calendário** para ativar os 4 alarmes.
+
+Existem duas versões do mesmo código:
+
+| | Versão local (GitHub Pages) | Versão com servidor (Fly.io etc.) |
+|---|---|---|
+| Custo | **Grátis** | ≈ US$ 2–4/mês |
+| Onde ficam os dados | No iPhone | No servidor (sincroniza iPhone e computador) |
+| Lembretes | Alarmes do Calendário do iPhone (1 toque por compromisso) | Notificações automáticas do app |
+| Interpretação | Local em português | Local ou IA Claude |
+| Exportação | CSV e backup | CSV, Excel e backup |
 
 | Início | Voz → resultado | Agenda | Assinaturas |
 |---|---|---|---|
@@ -199,6 +217,9 @@ npm run build
 ```
 ```bash
 npm run e2e         # 16 etapas no navegador emulando um iPhone; gera docs/screenshots/
+```
+```bash
+npm run build:local && npm run e2e:local   # versão local servida como no GitHub Pages (11 etapas)
 ```
 
 ## 7. Estrutura

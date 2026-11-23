@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, SendHorizontal, Check, TriangleAlert, Undo2, Pencil, Sparkles, CircleCheck, Info } from 'lucide-react';
-import { api, uid, brl, cap } from './api.js';
+import { Mic, SendHorizontal, Check, TriangleAlert, Undo2, Pencil, Sparkles, CircleCheck, Info, CalendarPlus } from 'lucide-react';
+import { api, uid, brl, cap, IS_LOCAL } from './api.js';
 import { Sheet, Spinner, useToast } from './ui.jsx';
 import { useApp } from './context.js';
 
@@ -288,6 +288,11 @@ function ResultCard({ result, onChange, onRefresh, tz }) {
             <ul className="reminder-list">
               {result.data.reminders.map((r) => <li key={r.kind}><Check size={12} /> {fmtFire(r.fire_at, tz)}</li>)}
             </ul>
+          )}
+          {!undone && ['event_created', 'event_updated'].includes(result.kind) && result.data.event?.time && (
+            <button className="btn small primary" onClick={() => api.download(`/api/events/${result.data.event.id}/ics`).catch((err) => toast(err.message, { tone: 'error' }))}>
+              <CalendarPlus size={14} /> {IS_LOCAL ? 'Adicionar ao Calendário (ativa os alarmes)' : 'Adicionar ao Calendário'}
+            </button>
           )}
           {canUndo && !undone && <button className="btn small ghost" disabled={busy} onClick={undo}><Undo2 size={14} /> Desfazer</button>}
         </div>

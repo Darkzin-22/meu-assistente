@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Bell, Moon, Sun, Smartphone, Sparkles, Mic, Tag, CalendarDays, Download, Upload, History, Shield, LogOut, Trash2, Plus, Copy, RotateCcw, Share, SquarePlus } from 'lucide-react';
-import { api, urlB64ToUint8Array, brl, centsToInput, relDay } from '../api.js';
+import { api, urlB64ToUint8Array, brl, centsToInput, relDay, IS_LOCAL } from '../api.js';
 import { useApp } from '../context.js';
 import { Group, Row, Toggle, Segmented, Sheet, Field, Spinner, Empty, ColorPicker, useAsync, useToast, useConfirm } from '../ui.jsx';
 import { IconBadge, Icon, ICON_KEYS } from '../icons.jsx';
@@ -23,7 +23,7 @@ export default function SettingsPage() {
     <div className="page">
       <h1 className="large-title">Ajustes</h1>
 
-      <NotificationsGroup />
+      {IS_LOCAL ? <LocalRemindersGroup /> : <NotificationsGroup />}
 
       <Group title="Aparência">
         <div className="card-pad">
@@ -31,14 +31,21 @@ export default function SettingsPage() {
         </div>
       </Group>
 
-      <Group title="Lembretes dos compromissos" footer="Cada compromisso recebe estes avisos. Alterações reprogramam os lembretes futuros.">
+      <Group title="Lembretes dos compromissos" footer={IS_LOCAL ? "Estes são os alarmes enviados ao Calendário do iPhone junto com cada compromisso." : "Cada compromisso recebe estes avisos. Alterações reprogramam os lembretes futuros."}>
         <Row icon={<IconBadge name="bell" color="#FF9F0A" size={30} />} title="Configurar lembretes" subtitle={describeRules(s.reminders_effective)} onClick={() => setSheet('reminders')} />
-        <Row icon={<IconBadge name="money" color="#30D158" size={30} />} title="Avisar cobranças no dia do vencimento">
+        {!IS_LOCAL && <Row icon={<IconBadge name="money" color="#30D158" size={30} />} title="Avisar cobranças no dia do vencimento">
           <Toggle checked={s.charge_notifications !== false} onChange={(v) => save({ settings: { charge_notifications: v } })} />
-        </Row>
+        </Row>}
       </Group>
 
-      <Group title="Voz e inteligência" footer={caps?.claude ? `IA disponível: ${caps.model}. O modo local funciona sem internet e sem custo.` : 'IA (Claude) não configurada no servidor — usando o interpretador local, gratuito.'}>
+      {IS_LOCAL ? (
+        <Group title="Voz" footer="Os comandos são entendidos aqui mesmo no iPhone, sem internet e sem custo. A voz usa o reconhecimento do próprio iPhone — o ditado do teclado também funciona no campo de texto.">
+          <Row icon={<span className="icon-badge" style={{ background: '#0A84FF', width: 30, height: 30 }}><Mic size={16} color="#fff" /></span>} title="Executar comando de voz direto" subtitle="Desligado: mostra a transcrição para revisar antes">
+            <Toggle checked={s.voice_auto_send !== false} onChange={(v) => save({ settings: { voice_auto_send: v } })} />
+          </Row>
+        </Group>
+      ) : (
+        <Group title="Voz e inteligência" footer={caps?.claude ? `IA disponível: ${caps.model}. O modo local funciona sem internet e sem custo.` : 'IA (Claude) não configurada no servidor — usando o interpretador local, gratuito.'}>
         <Row icon={<IconBadge name="sparkles" color="#5E5CE6" size={30} />} title="Interpretação de comandos" value={caps?.engine === 'claude' ? 'IA (Claude)' : 'Local'} />
         <div className="card-pad">
           <Segmented value={s.ai_mode || 'auto'} onChange={(v) => save({ settings: { ai_mode: v } })} options={[{ value: 'auto', label: 'Automático' }, { value: 'claude', label: 'IA' }, { value: 'local', label: 'Local' }]} />
@@ -48,32 +55,39 @@ export default function SettingsPage() {
           <Toggle checked={s.voice_auto_send !== false} onChange={(v) => save({ settings: { voice_auto_send: v } })} />
         </Row>
       </Group>
+      )}
 
       <Group title="Organização">
         <Row icon={<span className="icon-badge" style={{ background: '#FF9F0A', width: 30, height: 30 }}><Tag size={16} color="#fff" /></span>} title="Categorias e orçamentos" onClick={() => setSheet('categories')} />
         <Row icon={<span className="icon-badge" style={{ background: '#8E8E93', width: 30, height: 30 }}><Smartphone size={16} color="#fff" /></span>} title="Fuso horário" value={user.timezone.replace('_', ' ')} onClick={() => setSheet('tz')} />
       </Group>
 
-      <Group title="Calendário do iPhone" footer="Assine este endereço no app Calendário (Ajustes › Calendário › Contas › Adicionar conta › Outra › Calendário assinado) para ver seus compromissos lá também.">
+      {!IS_LOCAL && <Group title="Calendário do iPhone" footer="Assine este endereço no app Calendário (Ajustes › Calendário › Contas › Adicionar conta › Outra › Calendário assinado) para ver seus compromissos lá também.">
         <Row icon={<span className="icon-badge" style={{ background: '#FF453A', width: 30, height: 30 }}><CalendarDays size={16} color="#fff" /></span>} title="Copiar link do calendário" onClick={async () => {
           const url = `webcal://${location.host}/api/feed/${user.feed_token}.ics`;
           try { await navigator.clipboard.writeText(url); toast('Link copiado.', { tone: 'ok' }); } catch { prompt('Copie o link:', url); }
         }} />
-      </Group>
+      </Group>}
 
-      <Group title="Dados e privacidade">
-        <a className="row tappable" href="/api/export/expenses.xlsx"><div className="row-icon"><span className="icon-badge" style={{ background: '#30D158', width: 30, height: 30 }}><Download size={16} color="#fff" /></span></div><div className="row-main"><div className="row-title">Exportar despesas (Excel)</div></div></a>
-        <a className="row tappable" href="/api/export/expenses.csv"><div className="row-icon"><span className="icon-badge" style={{ background: '#66D4CF', width: 30, height: 30 }}><Download size={16} color="#fff" /></span></div><div className="row-main"><div className="row-title">Exportar despesas (CSV)</div></div></a>
-        <a className="row tappable" href="/api/backup"><div className="row-icon"><span className="icon-badge" style={{ background: '#0A84FF', width: 30, height: 30 }}><Shield size={16} color="#fff" /></span></div><div className="row-main"><div className="row-title">Baixar backup completo</div><div className="row-sub">Despesas, assinaturas, agenda e categorias</div></div></a>
+      <Group title="Dados e privacidade" footer={IS_LOCAL ? "Seus dados ficam guardados só neste iPhone, não vão para nenhum servidor. Faça um backup de vez em quando (ex.: uma vez por semana): se o app for apagado da Tela de Início, os dados vão junto." : undefined}>
+        {!IS_LOCAL && <a className="row tappable" href="/api/export/expenses.xlsx"><div className="row-icon"><span className="icon-badge" style={{ background: '#30D158', width: 30, height: 30 }}><Download size={16} color="#fff" /></span></div><div className="row-main"><div className="row-title">Exportar despesas (Excel)</div></div></a>}
+        <Row icon={<span className="icon-badge" style={{ background: '#66D4CF', width: 30, height: 30 }}><Download size={16} color="#fff" /></span>} title={IS_LOCAL ? 'Exportar despesas (CSV — abre no Excel e no Numbers)' : 'Exportar despesas (CSV)'} onClick={() => api.download('/api/export/expenses.csv').catch((e) => toast(e.message, { tone: 'error' }))} />
+        <Row icon={<span className="icon-badge" style={{ background: '#0A84FF', width: 30, height: 30 }}><Shield size={16} color="#fff" /></span>} title="Baixar backup completo" subtitle={IS_LOCAL ? 'Guarde no iCloud Drive; serve também para levar os dados ao computador' : 'Despesas, assinaturas, agenda e categorias'} onClick={() => api.download('/api/backup').catch((e) => toast(e.message, { tone: 'error' }))} />
         <Row icon={<span className="icon-badge" style={{ background: '#5E5CE6', width: 30, height: 30 }}><Upload size={16} color="#fff" /></span>} title="Restaurar backup" onClick={() => setSheet('restore')} />
         <Row icon={<span className="icon-badge" style={{ background: '#8E8E93', width: 30, height: 30 }}><Trash2 size={16} color="#fff" /></span>} title="Compromissos excluídos" onClick={() => setSheet('evtrash')} />
         <Row icon={<span className="icon-badge" style={{ background: '#AC8E68', width: 30, height: 30 }}><History size={16} color="#fff" /></span>} title="Histórico de alterações" onClick={() => setSheet('audit')} />
       </Group>
 
+      {IS_LOCAL ? (
+        <Group title="Você">
+          <Row title="Seu nome" value={user.name} onClick={() => { const n = prompt('Como você quer ser chamado?', user.name || ''); if (n && n.trim()) save({ name: n.trim() }, 'Nome atualizado.'); }} />
+        </Group>
+      ) : (
       <Group title="Conta" footer={user.email}>
         <Row title="Alterar senha" onClick={() => setSheet('password')} />
         <Row title={<span className="neg"><LogOut size={15} /> Sair</span>} onClick={async () => { if (await confirm('Sair desta conta neste aparelho?', { confirmLabel: 'Sair' })) { await api.post('/api/auth/logout'); onLogout(); } }} />
       </Group>
+      )}
       <p className="muted small center">Meu Assistente · v1.0</p>
 
       {sheet === 'reminders' && <RemindersSheet onClose={() => setSheet(null)} rules={s.reminders_effective} custom={!!s.reminders} onSave={(r) => save({ settings: { reminders: r } }, 'Lembretes atualizados e reprogramados.')} />}
@@ -89,6 +103,22 @@ export default function SettingsPage() {
 
 function describeRules(rules = []) {
   return rules.filter((r) => r.enabled !== false).map((r) => (r.type === 'days' ? `${r.days}d antes às ${r.time}` : r.minutes >= 60 && r.minutes % 60 === 0 ? `${r.minutes / 60}h antes` : `${r.minutes} min antes`)).join(' · ') || 'Nenhum';
+}
+
+// ---------------------------------------------------------------- Lembretes pelo Calendário (versão local)
+function LocalRemindersGroup() {
+  return (
+    <Group title="Como os lembretes funcionam">
+      <div className="install-hint">
+        <p>Para os avisos tocarem <strong>mesmo com o app fechado</strong>, cada compromisso é enviado ao <strong>Calendário do iPhone</strong> com os alarmes configurados (5 dias, 1 dia, 2 horas e 10 minutos antes).</p>
+        <ol>
+          <li>Ao criar um compromisso, toque em <strong>Adicionar ao Calendário</strong>.</li>
+          <li>Na tela do iPhone, toque em <strong>Adicionar</strong>.</li>
+        </ol>
+        <p className="muted small">Se remarcar ou desmarcar um compromisso, faça o mesmo no app Calendário. Para instalar o app: Safari › <Share size={14} /> Compartilhar › <SquarePlus size={14} /> Adicionar à Tela de Início.</p>
+      </div>
+    </Group>
+  );
 }
 
 // ---------------------------------------------------------------- Notificações

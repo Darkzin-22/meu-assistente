@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Download, Filter, Trash2, RotateCcw, X } from 'lucide-react';
-import { api, brl, relDay, todayISO, addDaysISO, fmtDate, toCents } from '../api.js';
+import { api, brl, relDay, todayISO, addDaysISO, fmtDate, toCents, IS_LOCAL } from '../api.js';
 import { useApp } from '../context.js';
 import { Group, Row, Empty, Spinner, Segmented, Sheet, Field, useAsync, useToast } from '../ui.jsx';
 import { IconBadge } from '../icons.jsx';
@@ -123,8 +123,8 @@ export default function Finance() {
 
       <Group title={`Histórico${list.data ? ` · ${brl(list.data.total_cents)}` : ''}`} action={
         <div className="group-actions">
-          <a className="link-btn" href={`/api/export/expenses.xlsx?${qs}`}><Download size={14} /> Excel</a>
-          <a className="link-btn" href={`/api/export/expenses.csv?${qs}`}>CSV</a>
+          {!IS_LOCAL && <a className="link-btn" href={`/api/export/expenses.xlsx?${qs}`}><Download size={14} /> Excel</a>}
+          <button className="link-btn" onClick={() => api.download(`/api/export/expenses.csv?${qs}`)}>{IS_LOCAL && <Download size={14} />} CSV</button>
           <button className="link-btn" onClick={() => setTrash(true)}><Trash2 size={14} /> Lixeira</button>
         </div>
       }>

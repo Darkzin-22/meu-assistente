@@ -18,7 +18,20 @@ const listeners = new Set();
 export function onApiEvent(fn) { listeners.add(fn); return () => listeners.delete(fn); }
 const emit = (e) => listeners.forEach((fn) => fn(e));
 
+/** true = versão que roda inteira no aparelho (sem servidor). */
+export const IS_LOCAL = import.meta.env.VITE_LOCAL === '1';
+let localBackend = null;
+
 async function request(method, url, body, { isForm = false } = {}) {
+  if (IS_LOCAL) {
+    localBackend ||= await import('./local/backend.js');
+    try {
+      return await localBackend.handle(method, url, body);
+    } catch (err) {
+      if (err.status === 401) emit({ type: 'unauthenticated' });
+      throw new ApiError(err.message, err.status || 500, err.data);
+    }
+  }
   const headers = { 'x-requested-with': 'fetch' };
   if (body && !isForm) headers['content-type'] = 'application/json';
   let res;
@@ -60,6 +73,42 @@ export const api = {
   patch: (url, body) => request('PATCH', url, body),
   del: (url) => request('DELETE', url),
   upload: (url, form) => request('POST', url, form, { isForm: true }),
+
+  /**
+   * Baixa um arquivo gerado pela API (CSV, backup, .ics).
+   * Compromissos (.ics) são abertos para o iPhone oferecer "Adicionar ao Calendário" com os alarmes.
+   */
+  async download(url) {
+    let filename, mime, content;
+    if (IS_LOCAL) {
+      const r = await request('GET', url);
+      ({ filename, mime, content } = r.__download);
+    } else {
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new ApiError('Não foi possível gerar o arquivo.', res.status);
+      mime = res.headers.get('content-type') || 'application/octet-stream';
+      filename = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') || '')?.[1] || 'arquivo';
+      content = await res.blob();
+    }
+    const blob = content instanceof Blob ? content : new Blob([content], { type: mime });
+    const file = new File([blob], filename, { type: mime });
+    const isCalendar = /calendar/.test(mime);
+    const isApple = /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
+    // No iPhone, arquivos comuns vão pela folha de compartilhamento ("Salvar em Arquivos").
+    if (!isCalendar && isApple && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: filename }); return; } catch (err) { if (err?.name === 'AbortError') return; }
+    }
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = href;
+    // No iPhone, abrir o .ics (sem "download") mostra a tela nativa de adicionar ao Calendário.
+    if (!(isCalendar && isApple)) a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(href), 60_000);
+  },
 
   /** Mutação que pode ser enfileirada sem internet. body deve conter client_id. */
   async queued(url, body, label) {
