@@ -25,6 +25,8 @@ export default function SettingsPage() {
 
       {IS_LOCAL ? <LocalRemindersGroup /> : <NotificationsGroup />}
 
+      {!IS_LOCAL && <JarvisGroup />}
+
       <Group title="Aparência">
         <div className="card-pad">
           <Segmented value={s.theme || 'dark'} onChange={(v) => save({ settings: { theme: v } }, 'Tema alterado.')} options={[{ value: 'dark', label: 'Escuro' }, { value: 'light', label: 'Claro' }, { value: 'system', label: 'Automático' }]} />
@@ -103,6 +105,40 @@ export default function SettingsPage() {
 
 function describeRules(rules = []) {
   return rules.filter((r) => r.enabled !== false).map((r) => (r.type === 'days' ? `${r.days}d antes às ${r.time}` : r.minutes >= 60 && r.minutes % 60 === 0 ? `${r.minutes / 60}h antes` : `${r.minutes} min antes`)).join(' · ') || 'Nenhum';
+}
+
+// ---------------------------------------------------------------- Jarvis (Siri)
+const JARVIS_GUIDE = 'https://github.com/Darkzin-22/meu-assistente/blob/main/docs/JARVIS.md';
+function JarvisGroup() {
+  const toast = useToast();
+  const confirm = useConfirm();
+  const { data, reload } = useAsync(() => api.get('/api/jarvis/status', { cache: false }), []);
+  const [token, setToken] = useState(null);
+  async function generate() {
+    if (data?.active && !(await confirm('Gerar uma nova chave? O atalho atual da Siri vai parar de funcionar até você colar a nova chave nele.', { confirmLabel: 'Gerar nova', danger: false }))) return;
+    try { setToken((await api.post('/api/jarvis/token')).token); reload(); } catch (err) { toast(err.message, { tone: 'error' }); }
+  }
+  async function copy(text, label) {
+    try { await navigator.clipboard.writeText(text); toast(`${label} copiado.`, { tone: 'ok' }); } catch { prompt(`Copie ${label.toLowerCase()}:`, text); }
+  }
+  return (
+    <Group title="Jarvis — assistente pela Siri" footer='Diga "E aí Siri, Jarvis" e fale normalmente, sem abrir o app. Perguntas gerais são respondidas pela IA da Apple.'>
+      <Row icon={<IconBadge name="sparkles" color="linear-gradient(135deg,#3A8DFF,#B05CFF)" size={30} />} title={data?.active ? 'Chave ativa' : 'Ainda não configurado'} subtitle={data?.last_used_at ? `Último uso: ${new Date(data.last_used_at).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}` : undefined}>
+        <button className="btn small primary" onClick={generate}>{data?.active ? 'Nova chave' : 'Gerar chave'}</button>
+      </Row>
+      <Row title="Como criar o atalho na Siri" onClick={() => window.open(JARVIS_GUIDE, '_blank', 'noopener')} />
+      {data?.active && <Row title={<span className="neg">Desativar Jarvis</span>} onClick={async () => { if (await confirm('Desativar o Jarvis? O atalho da Siri deixa de funcionar.', { confirmLabel: 'Desativar' })) { await api.del('/api/jarvis/token'); reload(); } }} />}
+      <Sheet open={!!token} onClose={() => setToken(null)} title="Chave do Jarvis">
+        <div className="form">
+          <p>Cole estes dois valores no atalho "Jarvis" (veja o passo a passo). <strong>A chave só aparece agora</strong>; se perder, gere outra.</p>
+          <Field label="Endereço"><div className="copy-row"><code>{data?.url}</code><button className="btn small ghost" onClick={() => copy(data?.url, 'Endereço')}>Copiar</button></div></Field>
+          <Field label="Chave"><div className="copy-row"><code>{token}</code><button className="btn small ghost" onClick={() => copy(`Bearer ${token}`, 'Chave')}>Copiar</button></div></Field>
+          <p className="muted small">O botão Copiar da chave já inclui a palavra "Bearer" na frente, como o atalho precisa.</p>
+          <button className="btn primary big" onClick={() => window.open(JARVIS_GUIDE, '_blank', 'noopener')}>Ver passo a passo do atalho</button>
+        </div>
+      </Sheet>
+    </Group>
+  );
 }
 
 // ---------------------------------------------------------------- Lembretes pelo Calendário (versão local)

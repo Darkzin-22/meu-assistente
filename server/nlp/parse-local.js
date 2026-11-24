@@ -436,6 +436,41 @@ export function parseLocal(text, ctx) {
     return { actions: [action('search', { text: tidy(t.o) })] };
   }
 
+  // ---------------- Rendimentos e saldo ----------------
+  const incomeWord = /\b(recebi|recebo|receber|ganhei|ganho|caiu|cai|entrou|entra|entraram|me pagaram|me pagou|recebimento|rendimentos?|renda|salario|freela|freelance|pix de|reembolso|dividendos?|sobrou|sobra|sobrando|entradas?|lucro)\b/;
+  const balanceWord = /\b(saldo|quanto (?:eu )?tenho (?:na|no|em) (?:conta|banco|minha conta)|quanto dinheiro (?:eu )?tenho)\b/;
+  if (balanceWord.test(n) && isQuestion) return { actions: [action('query_balance')] };
+  if (/\bsaldo\b/.test(n) && money.length && !isQuestion) {
+    const t2 = t.clone();
+    const amount = extractMoney(t2);
+    return { actions: [action('set_balance', { name: extractAccountName(t2.n), amount })] };
+  }
+  if (incomeWord.test(n) && isQuestion && !/\b(gastei|gasto|gastos|despesas?|assinaturas?)\b/.test(n)) {
+    const t2 = t.clone();
+    const per = extractPeriod(t2, today, false) || { start: today.startOf('month').toISODate(), end: today.endOf('month').toISODate() };
+    return { actions: [action('query_income', { period: per })] };
+  }
+  const salaryWord = /\b(salario|renda|pensao|mesada|pro[- ]labore|bolsa|aluguel que recebo|aposentadoria|beneficio)\b/;
+  if (salaryWord.test(n) && RECUR_HINT.test(n) && money.length && !isQuestion) {
+    const t2 = t.clone();
+    const amount = extractMoney(t2);
+    const freq = extractFrequency(t2) || { frequency: 'monthly', interval: 1 };
+    const bd = extractBillingDay(t2);
+    const m = salaryWord.exec(n);
+    const name = capitalize(t.o.substr(m.index, m[1].length));
+    const a = action('create_recurrence', { name, amount, frequency: freq.frequency, interval: freq.interval, day_of_month: bd?.day || null, month: bd?.month || null, kind: 'fixed', direction: 'income' });
+    if (!bd && freq.frequency !== 'weekly') a.missing = ['day_of_month'];
+    return { actions: [a] };
+  }
+  if (incomeWord.test(n) && money.length && !isQuestion && !/\b(gastei|comprei|paguei|assinatura)\b/.test(n)) {
+    const t2 = t.clone();
+    const date = extractDate(t2, today, 'past') || today.toISODate();
+    const amount = extractMoney(t2);
+    t2.cutAll(/\b(?:eu\s+)?(?:recebi|ganhei|caiu|entrou|entraram|me pagaram|me pagou|recebimento|um|uma|o|a|meu|minha|de|do|da|na|no|conta|hoje|ontem|reais|real|pix)\b/);
+    const description = capitalize(tidy(t2.o)) || 'Entrada';
+    return { actions: [action('create_income', { description, amount, date })] };
+  }
+
   if (isQuestion && !/^\s*(?:tenho|tem)\s+(?:uma|um)\s+(?:assinatura|mensalidade|despesa fixa)\b/.test(n)) {
     // Assinaturas / despesas fixas
     if (/\b(assinaturas?|mensalidades?|despesas? fix[ao]s?|gastos? fix[oa]s?|contas? fix[ao]s?|recorrentes?|cobrancas?)\b/.test(n) && !/\b(vou gastar|previst|previsao|proximo mes contando|mes que vem contando)\b/.test(n)) {
@@ -468,7 +503,10 @@ export function parseLocal(text, ctx) {
       const rest = tidy(t2.o.replace(/\?/g, ''));
       return { actions: [action('query_events', { period: per, text: rest.length > 2 ? rest : null })] };
     }
-    // Despesas
+    // Despesas — só se a pergunta for mesmo sobre gastos; o resto é pergunta geral (vai para a IA).
+    if (!/\b(gast\w*|despesas?|paguei|pago|comprei|compras?|custou|custa|custando|gasto)\b/.test(n)) {
+      return { actions: [action('clarify', { question: 'Não entendi como comando de finanças ou agenda.' })] };
+    }
     const t2 = t.clone();
     const per = extractPeriod(t2, today, false) || { start: today.startOf('month').toISODate(), end: today.toISODate() };
     let category = explicitCategory(t2.n, ctx.categories || []);
@@ -636,6 +674,13 @@ export function parseLocal(text, ctx) {
   }
 
   return { actions: [action('clarify', { question: 'Não entendi o comando. Tente algo como "gastei 20 reais no almoço" ou "me lembre de ir ao dentista amanhã às 15h".' })] };
+}
+
+const BANKS = ['nubank', 'itau', 'bradesco', 'santander', 'caixa', 'banco do brasil', 'inter', 'c6', 'picpay', 'mercado pago', 'neon', 'next', 'original', 'btg', 'xp', 'sicredi', 'sicoob', 'pagbank', 'pagseguro', 'will bank', 'poupanca', 'carteira', 'dinheiro', 'cofrinho'];
+function extractAccountName(n) {
+  for (const b of BANKS) if (new RegExp(`\\b${b}\\b`).test(n)) return b === 'itau' ? 'Itaú' : b === 'poupanca' ? 'Poupança' : b.replace(/\b\w/g, (c) => c.toUpperCase());
+  const m = /\bsaldo\s+(?:d[oa]|n[oa])\s+(?:conta\s+(?:d[oa]\s+)?)?([a-z0-9]+)/.exec(n);
+  return m && !['meu', 'minha', 'conta', 'banco'].includes(m[1]) ? m[1][0].toUpperCase() + m[1].slice(1) : null;
 }
 
 /** Divide no último " para/pra " cujo lado direito contém data, hora, valor ou categoria. */

@@ -1,4 +1,6 @@
-import { CalendarDays, Repeat, Clock, TrendingUp, Mic } from 'lucide-react';
+import { useState } from 'react';
+import { CalendarDays, Repeat, Clock, TrendingUp, Mic, Plus, Landmark } from 'lucide-react';
+import { IncomeSheet, BalanceSheet } from '../forms.jsx';
 import { api, brl, relDay } from '../api.js';
 import { useApp } from '../context.js';
 import { Group, Row, Empty, Spinner, useAsync, useToast } from '../ui.jsx';
@@ -9,6 +11,7 @@ export default function Home() {
   const { version, user, tz, setTab, refresh } = useApp();
   const toast = useToast();
   const { data, loading, error } = useAsync(() => api.get('/api/dashboard'), [version]);
+  const [sheet, setSheet] = useState(null);
   if (!data && loading) return <div className="splash inline"><Spinner /></div>;
   if (!data) return <Empty title="Não foi possível carregar" text={error?.message} />;
   const s = data.stats;
@@ -41,11 +44,27 @@ export default function Home() {
         </div>
       </div>
 
+      {data.cashflow && (
+        <Group title="Saldo e rendimento">
+          <div className="mini-stats">
+            <div><span>Saldo estimado</span><strong>{data.cashflow.balance.estimated_cents === null ? '—' : brl(data.cashflow.balance.estimated_cents)}</strong></div>
+            <div><span>Entradas no mês</span><strong className="pos">{brl(data.cashflow.month.income_cents)}</strong></div>
+            <div><span>Sobra no mês</span><strong className={data.cashflow.month.net_cents < 0 ? 'neg' : ''}>{brl(data.cashflow.month.net_cents)}</strong></div>
+          </div>
+          <div className="row-actions pad-row">
+            <button className="btn small ghost" onClick={() => setSheet('balance')}><Landmark size={14} /> {data.cashflow.balance.accounts.length ? 'Atualizar saldo' : 'Informar saldo'}</button>
+            <button className="btn small ghost" onClick={() => setSheet('income')}><Plus size={14} /> Nova entrada</button>
+          </div>
+        </Group>
+      )}
+      {sheet === 'income' && <IncomeSheet open onClose={() => setSheet(null)} />}
+      {sheet === 'balance' && <BalanceSheet open onClose={() => setSheet(null)} accounts={data.cashflow?.balance.accounts} />}
+
       {data.pending_charges.length > 0 && (
         <Group title="Aguardando confirmação">
           {data.pending_charges.slice(0, 5).map((ch) => (
             <Row key={ch.id} icon={<IconBadge name="repeat" color="#BF5AF2" size={32} />} title={ch.name} subtitle={`Venceu ${relDay(ch.due_date, tz).toLowerCase()} · ${brl(ch.amount_cents)}`}>
-              <button className="btn small primary" onClick={() => confirmCharge(ch)}>Paguei</button>
+              <button className="btn small primary" onClick={() => confirmCharge(ch)}>{ch.direction === 'income' ? 'Recebi' : 'Paguei'}</button>
             </Row>
           ))}
         </Group>

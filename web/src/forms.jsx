@@ -254,3 +254,67 @@ export function RecurrenceForm({ rec, onDone }) {
     </form>
   );
 }
+
+// ---------------------------------------------------------------- Entrada (rendimento)
+export function IncomeSheet({ open, onClose }) {
+  const { refresh, tz } = useApp();
+  const toast = useToast();
+  const [f, setF] = useState({ description: '', amount: '', date: todayISO(tz) });
+  const [busy, setBusy] = useState(false);
+  async function save(e) {
+    e.preventDefault();
+    if (!toCents(f.amount)) return toast('Informe um valor válido.', { tone: 'warn' });
+    setBusy(true);
+    try {
+      await api.post('/api/incomes', { ...f, client_id: uid() });
+      toast('Entrada registrada.', { tone: 'ok' });
+      refresh();
+      onClose();
+    } catch (err) { toast(err.message, { tone: 'error' }); } finally { setBusy(false); }
+  }
+  return (
+    <Sheet open={open} onClose={onClose} title="Nova entrada">
+      <form className="form" onSubmit={save}>
+        <div className="amount-input"><span>R$</span><input inputMode="decimal" placeholder="0,00" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} autoFocus required /></div>
+        <Field label="Descrição"><input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} placeholder="Ex.: Salário, Freela, Reembolso" required /></Field>
+        <Field label="Data"><input type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} required /></Field>
+        <p className="muted small">Salário que se repete? Cadastre em Assinaturas como entrada, ou diga: "meu salário de 4.500 cai todo dia 5".</p>
+        <button className="btn primary big" disabled={busy}>{busy ? <Spinner size={18} /> : 'Salvar'}</button>
+      </form>
+    </Sheet>
+  );
+}
+
+// ---------------------------------------------------------------- Saldo das contas
+export function BalanceSheet({ open, onClose, accounts = [] }) {
+  const { refresh } = useApp();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const [f, setF] = useState({ name: accounts[0]?.name || '', balance: '' });
+  const [busy, setBusy] = useState(false);
+  async function save(e) {
+    e.preventDefault();
+    if (toCents(f.balance) === null) return toast('Informe o saldo.', { tone: 'warn' });
+    setBusy(true);
+    try {
+      await api.post('/api/accounts', f);
+      toast('Saldo atualizado.', { tone: 'ok' });
+      refresh();
+      onClose();
+    } catch (err) { toast(err.message, { tone: 'error' }); } finally { setBusy(false); }
+  }
+  return (
+    <Sheet open={open} onClose={onClose} title="Informar saldo">
+      <form className="form" onSubmit={save}>
+        <p className="muted small">Informe o saldo que aparece no app do banco. Depois, o assistente estima o saldo somando suas entradas e descontando as despesas registradas.</p>
+        <Field label="Conta"><input list="contas" value={f.name} onChange={(e) => setF({ ...f, name: e.target.value })} placeholder="Ex.: Nubank, Itaú, Carteira" required /></Field>
+        <datalist id="contas">{accounts.map((a) => <option key={a.id} value={a.name} />)}</datalist>
+        <div className="amount-input small"><span>R$</span><input inputMode="decimal" placeholder="0,00" value={f.balance} onChange={(e) => setF({ ...f, balance: e.target.value })} required /></div>
+        <button className="btn primary big" disabled={busy}>{busy ? <Spinner size={18} /> : 'Salvar'}</button>
+        {accounts.map((a) => (
+          <button type="button" key={a.id} className="btn danger-ghost" onClick={async () => { if (await confirm(`Remover a conta ${a.name} do saldo?`, { confirmLabel: 'Remover' })) { await api.del(`/api/accounts/${a.id}`); refresh(); onClose(); } }}><Trash2 size={15} /> Remover {a.name}</button>
+        ))}
+      </form>
+    </Sheet>
+  );
+}

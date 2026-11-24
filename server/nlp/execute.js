@@ -7,6 +7,7 @@ import { now, today, addDays, formatDateLong } from '../time.js';
 import * as fin from '../finance.js';
 import * as rec from '../recurring.js';
 import * as ag from '../agenda.js';
+import * as cf from '../cashflow.js';
 import { parseLocal } from './parse-local.js';
 import { parseWithClaude, claudeAvailable } from './llm.js';
 import { validateAction, action as mkAction } from './schema.js';
@@ -178,8 +179,10 @@ export function executeAction(db, user, input, { confirmed = false, source = 'te
         name: a.name, amount_cents: toCents(a.amount), frequency: a.frequency || 'monthly', interval: a.interval || 1,
         day_of_month: a.day_of_month, month: a.month, anchor_date: a.start_date || undefined,
         kind: a.kind || 'subscription', category: a.category,
+        direction: a.direction || 'expense', auto_confirm: a.direction === 'income',
       }, src);
       const d = rec.listRecurrences(db, user).find((x) => x.id === r.id);
+      if (r.direction === 'income') return done(`Cadastrado: ${r.name} de ${brl(r.amount_cents)} (${rec.frequencyLabel(r).toLowerCase()}). Próximo recebimento: ${dateLabel(d.next_due, tz)}. Ele entra automaticamente no seu saldo na data.`, { recurrence: d }, { kind: 'recurrence_created' });
       return done(`Cadastrado: ${r.name} — ${brl(r.amount_cents)} (${rec.frequencyLabel(r).toLowerCase()}). Próxima cobrança: ${dateLabel(d.next_due, tz)}.`, { recurrence: d }, { kind: 'recurrence_created' });
     }
     case 'update_recurrence':
@@ -221,6 +224,7 @@ export function executeAction(db, user, input, { confirmed = false, source = 'te
       }
       const r = rec.payRecurrence(db, user, r0.id, { amount_cents: a.amount ? toCents(a.amount) : undefined, date: a.date || undefined }, src);
       if (r.already) return answer(`O pagamento de ${r0.name} (${dateLabel(r.charge.due_date, tz)}) já estava registrado.`);
+      if (r.income) return done(`Recebimento registrado: ${r0.name} — ${brl(r.income.amount_cents)}.`, { income: r.income, charge: r.charge }, { kind: 'income_created' });
       return done(`Pagamento registrado: ${r0.name} — ${brl(r.expense.amount_cents)} (vencimento ${dateLabel(r.charge.due_date, tz)}).`, { expense: r.expense, charge: r.charge }, { kind: 'charge_paid' });
     }
 
@@ -293,7 +297,7 @@ export function executeAction(db, user, input, { confirmed = false, source = 'te
       return answer(msg, { events: list, period: p });
     }
     case 'query_recurrences': {
-      const all = rec.listRecurrences(db, user).filter((r) => r.status === 'active');
+      const all = rec.listRecurrences(db, user).filter((r) => r.status === 'active' && r.direction !== 'income');
       const cat = a.category ? fin.findCategory(db, user.id, 'expense', a.category) : null;
       let list = all;
       if (a.kind) list = list.filter((r) => r.kind === a.kind);
@@ -321,7 +325,7 @@ export function executeAction(db, user, input, { confirmed = false, source = 'te
     case 'forecast': {
       const t = today(tz);
       const p = a.period?.start ? a.period : { start: t, end: DateTime.fromISO(t).endOf('month').toISODate() };
-      const items = rec.forecast(db, user, p.start, p.end).filter((o) => o.status !== 'paid');
+      const items = rec.forecast(db, user, p.start, p.end).filter((o) => o.status !== 'paid' && o.direction !== 'income');
       const recurring = items.reduce((s, o) => s + o.amount_cents, 0);
       const logged = fin.listExpenses(db, user.id, { start: p.start > t ? p.start : addDays(t, 1), end: p.end });
       const loggedTotal = logged.reduce((s, e) => s + e.amount_cents, 0);
@@ -332,6 +336,40 @@ export function executeAction(db, user, input, { confirmed = false, source = 'te
       msg += '.';
       if (items.length) msg += '\n' + items.slice(0, 12).map((o) => `• ${o.name} — ${brl(o.amount_cents)} (${dateLabel(o.due_date, tz)})`).join('\n');
       return answer(msg, { total_cents: recurring + loggedTotal, recurring_cents: recurring, logged_cents: loggedTotal, items, period: p });
+    }
+    // ------------------------------------------------------------ rendimentos e saldo
+    case 'create_income': {
+      if (!a.amount || a.amount <= 0) return needsInput(`Qual foi o valor recebido${a.description ? ` (${a.description})` : ''}?`, a, ['amount']);
+      const inc = cf.createIncome(db, user, { description: a.description, amount_cents: toCents(a.amount), date: a.date || today(tz), source: src, client_id: input.client_id || null });
+      return done(`Entrada registrada: ${inc.description} — ${brl(inc.amount_cents)} (${dateLabel(inc.date, tz)}).`, { income: inc }, { kind: 'income_created' });
+    }
+    case 'set_balance': {
+      if (a.amount === null || a.amount === undefined) return needsInput('Qual é o saldo atual?', a, ['amount']);
+      const acc = cf.setAccountBalance(db, user, { name: a.name, amount_cents: toCents(a.amount) });
+      const sum = cf.balanceSummary(db, user);
+      const extra = sum.accounts.length > 1 ? ` Saldo total: ${brl(sum.estimated_cents)}.` : '';
+      return done(`Saldo atualizado: ${acc.name} — ${brl(acc.balance_cents)}.${extra}`, { account: acc }, { kind: 'balance_set' });
+    }
+    case 'query_balance': {
+      const b = cf.balanceSummary(db, user);
+      if (!b.accounts.length) return answer('Você ainda não informou nenhum saldo. Diga, por exemplo: "meu saldo no Nubank é 2.300 reais".');
+      let msg = `Seu saldo estimado é ${brl(b.estimated_cents)}.`;
+      if (b.incomes_since_cents || b.expenses_since_cents) msg += ` Desde o último saldo informado entraram ${brl(b.incomes_since_cents)} e saíram ${brl(b.expenses_since_cents)}.`;
+      if (b.accounts.length > 1) msg += '\n' + b.accounts.map((x) => `• ${x.name}: ${brl(x.balance_cents)} (informado ${dateLabel(DateTime.fromISO(x.balance_at).setZone(tz).toISODate(), tz)})`).join('\n');
+      return answer(msg, b);
+    }
+    case 'query_income': {
+      const t = today(tz);
+      const p = a.period?.start ? a.period : { start: DateTime.fromISO(t).startOf('month').toISODate(), end: DateTime.fromISO(t).endOf('month').toISODate() };
+      const sm = cf.periodSummary(db, user, p);
+      const list = cf.listIncomes(db, user.id, { start: p.start, end: sm.end });
+      const pl = periodLabel(p, tz);
+      let msg = `${pl[0].toUpperCase()}${pl.slice(1)} você recebeu ${brl(sm.income_cents)} e gastou ${brl(sm.expense_cents)}. `;
+      msg += sm.net_cents >= 0 ? `Sobraram ${brl(sm.net_cents)}.` : `Faltaram ${brl(-sm.net_cents)}.`;
+      if (list.length && list.length <= 6) msg += '\n' + list.map((i) => `• ${i.description} — ${brl(i.amount_cents)} (${dateLabel(i.date, tz)})`).join('\n');
+      const upcoming = rec.forecast(db, user, addDays(t, 1), p.end).filter((o) => o.direction === 'income' && o.status !== 'paid');
+      if (upcoming.length) msg += `\nAinda vai entrar: ${upcoming.map((o) => `${o.name} ${brl(o.amount_cents)} (${dateLabel(o.due_date, tz)})`).join(', ')}.`;
+      return answer(msg, { ...sm, incomes: list });
     }
     case 'search': {
       const q = a.text || '';

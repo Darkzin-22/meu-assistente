@@ -15,7 +15,7 @@ const srv = http.createServer((req, res) => {
     lastBody = JSON.parse(b || '{}');
     if (mode === 'fail') { res.writeHead(500, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ type: 'error', error: { type: 'api_error', message: 'boom' } })); }
     const actions = [
-      { type: 'create_expense', description: 'Pastel', amount: 12.5, category: 'Alimentação', date: '2026-11-23', installments: null, title: null, time: null, duration_min: null, location: null, name: null, frequency: null, interval: null, day_of_month: null, month: null, start_date: null, kind: null, target: null, changes: null, period: null, within_days: null, text: null, question: null, missing: null },
+      { type: 'create_expense', description: 'Pastel', amount: 12.5, category: 'Alimentação', date: '2026-11-23', installments: null, title: null, time: null, duration_min: null, location: null, name: null, frequency: null, interval: null, day_of_month: null, month: null, start_date: null, kind: null, direction: null, target: null, changes: null, period: null, within_days: null, text: null, question: null, missing: null },
       null, // preenchida abaixo: válida para o esquema, mas com data fora do formato → descartada
     ];
     actions[1] = { ...actions[0], description: 'Inválida', date: 'amanhã' };

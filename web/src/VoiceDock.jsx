@@ -265,6 +265,7 @@ function ResultCard({ result, onChange, onRefresh, tz }) {
       else if (result.kind === 'event_updated') await api.patch(`/api/events/${d.before.id}`, { date: d.before.date, time: d.before.time, title: d.before.title });
       else if (result.undo) await api.post('/api/actions/execute', { action: result.undo, confirmed: true });
       else if (result.kind === 'charge_paid') await api.del(`/api/expenses/${d.expense.id}`);
+      else if (result.kind === 'income_created') await api.del(`/api/incomes/${d.income.id}`);
       setUndone(true);
       onRefresh();
       toast('Desfeito.');
@@ -275,7 +276,7 @@ function ResultCard({ result, onChange, onRefresh, tz }) {
     }
   }
 
-  const canUndo = ['expense_created', 'event_created', 'recurrence_created', 'expense_updated', 'event_updated', 'recurrence_cancelled', 'charge_paid'].includes(result.kind);
+  const canUndo = ['income_created', 'expense_created', 'event_created', 'recurrence_created', 'expense_updated', 'event_updated', 'recurrence_cancelled', 'charge_paid'].includes(result.kind);
 
   if (result.type === 'done') {
     return (

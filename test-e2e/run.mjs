@@ -182,6 +182,40 @@ await step('Tela Assinaturas', async () => {
   await page.screenshot({ path: path.join(SHOTS, '07-assinaturas.png') });
 });
 
+await step('Saldo e rendimento por comando aparecem no Início', async () => {
+  await page.click('.tabbar button:has-text("Início")');
+  await page.waitForSelector('.hero-value');
+  let t = await textCommand('Meu saldo no Nubank é 2.000 reais');
+  assert.match(t, /Saldo atualizado: Nubank — R\$\s?2\.000,00/);
+  await closeSheet();
+  t = await textCommand('Recebi 300 reais de um freela');
+  assert.match(t, /Entrada registrada: Freela — R\$\s?300,00/);
+  await closeSheet();
+  await page.waitForTimeout(500);
+  const box = await page.locator('.group:has-text("Saldo e rendimento")').innerText();
+  assert.match(box, /2\.300,00/);
+  assert.match(box, /300,00/);
+  await page.screenshot({ path: path.join(SHOTS, '10-saldo.png') });
+});
+
+await step('Ajustes › Jarvis: gerar chave mostra endereço e chave', async () => {
+  await page.click('.tabbar button:has-text("Ajustes")');
+  await page.waitForSelector('text=Jarvis — assistente pela Siri');
+  await page.click('.group:has-text("Jarvis") button:has-text("Gerar chave")');
+  await page.waitForSelector('.sheet:has-text("Chave do Jarvis")');
+  const txt = await page.locator('.sheet').innerText();
+  assert.match(txt, /\/api\/jarvis/);
+  assert.match(txt, /jv_[\w-]{20,}/);
+  await page.screenshot({ path: path.join(SHOTS, '11-jarvis-chave.png') });
+  const token = /jv_[\w-]+/.exec(txt)[0];
+  await closeSheet();
+  // Simula o atalho da Siri chamando o servidor com a chave
+  const r = await fetch(`${BASE}/api/jarvis`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify({ texto: 'Jarvis, qual é meu saldo?' }) });
+  const j = await r.json();
+  assert.equal(j.modo, 'assistente');
+  assert.match(j.resposta, /saldo estimado é R\$\s?2\.300,00/);
+});
+
 await step('Notificações: inscrição push e exibição pelo service worker', async () => {
   await page.click('.tabbar button:has-text("Ajustes")');
   await page.waitForSelector('text=Notificações');

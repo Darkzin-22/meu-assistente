@@ -7,6 +7,7 @@ export const ACTION_TYPES = [
   'create_expense', 'update_expense', 'delete_expense',
   'create_recurrence', 'update_recurrence', 'cancel_recurrence', 'pause_recurrence', 'resume_recurrence', 'pay_recurrence',
   'create_event', 'update_event', 'cancel_event', 'complete_event',
+  'create_income', 'set_balance', 'query_balance', 'query_income',
   'query_expenses', 'query_events', 'query_recurrences', 'forecast', 'search',
   'clarify',
 ];
@@ -57,6 +58,7 @@ export const ActionSchema = z.object({
   month: z.number().int().min(1).max(12).nullable(),
   start_date: date.describe('Data da primeira/próxima cobrança, quando não for definida por day_of_month'),
   kind: z.enum(['subscription', 'fixed']).nullable(),
+  direction: z.enum(['expense', 'income']).nullable().describe('income = salário/renda recorrente'),
   // edição / exclusão
   target: TargetSchema.nullable(),
   changes: ChangesSchema.nullable(),

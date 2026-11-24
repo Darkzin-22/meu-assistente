@@ -156,6 +156,40 @@ export const MIGRATIONS = [
   );
   CREATE INDEX idx_audit_user ON audit_log(user_id, created_at);
   `,
+  // v2 — rendimentos, contas/saldo e chaves de acesso (Jarvis)
+  `
+  CREATE TABLE incomes (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+    date TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'manual',
+    client_id TEXT,
+    charge_id INTEGER UNIQUE REFERENCES recurrence_charges(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL,
+    deleted_at TEXT,
+    UNIQUE (user_id, client_id)
+  );
+  ALTER TABLE recurrences ADD COLUMN direction TEXT NOT NULL DEFAULT 'expense';
+  CREATE INDEX idx_incomes_user_date ON incomes(user_id, date);
+  CREATE TABLE accounts (
+    id INTEGER PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    balance_cents INTEGER NOT NULL,
+    balance_at TEXT NOT NULL,          -- momento (ISO UTC) em que o saldo foi informado
+    archived INTEGER NOT NULL DEFAULT 0,
+    UNIQUE (user_id, name)
+  );
+  CREATE TABLE api_tokens (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    last_used_at TEXT
+  );
+  `,
 ];
 
 

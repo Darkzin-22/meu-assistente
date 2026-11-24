@@ -13,6 +13,7 @@ const LlmAction = z.object({
   title: s, time: s, duration_min: nn, location: s,
   name: s, frequency: z.enum(['weekly', 'monthly', 'yearly', 'days']).nullable(), interval: nn, day_of_month: nn, month: nn, start_date: s,
   kind: z.enum(['subscription', 'fixed']).nullable(),
+  direction: z.enum(['expense', 'income']).nullable(),
   target: z.object({ text: s, date: s, time: s, category: s, amount: nn }).nullable(),
   changes: z.object({ amount: nn, description: s, title: s, category: s, date: s, time: s, day_of_month: nn }).nullable(),
   period: z.object({ start: s, end: s }).nullable(),
@@ -32,6 +33,11 @@ Tipos de ação:
 - update_expense: corrigir despesa existente. target {text, date, category, amount} identifica o registro; changes {amount, description, category, date} traz os novos valores.
 - delete_expense: apagar despesa. target identifica o registro.
 - create_recurrence: assinatura ou despesa fixa recorrente. name, amount, frequency (monthly|yearly|weekly|days), interval (1 = toda vez; 2 = a cada 2 períodos; quinzenal = weekly com interval 2), day_of_month (dia de cobrança), month (para anual), start_date (YYYY-MM-DD, para semanal: próxima data do dia da semana), kind (subscription para serviços/streaming/apps/planos; fixed para academia, aluguel, personal, condomínio, mensalidades), category (nome exato da lista).
+  Salário ou renda que se repete (ex.: "meu salário de 4500 cai todo dia 5") = create_recurrence com direction "income".
+- create_income: dinheiro recebido uma vez (ex.: "recebi 300 de um freela"). description, amount, date.
+- set_balance: o usuário informa o saldo atual de uma conta (ex.: "meu saldo no Nubank é 2300"). name = nome da conta (ou null), amount.
+- query_balance: "qual é meu saldo?", "quanto tenho na conta?".
+- query_income: perguntas sobre quanto recebeu ou quanto sobrou (rendimento, entradas, sobra). period {start, end}.
 - update_recurrence: mudança de valor ou dia de cobrança. target.text = nome da assinatura; changes.amount e/ou changes.day_of_month.
 - cancel_recurrence / pause_recurrence / resume_recurrence: target.text = nome.
 - pay_recurrence: o usuário diz que pagou uma assinatura/mensalidade cadastrada. target.text = nome; amount/date se informados.

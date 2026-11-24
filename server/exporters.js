@@ -61,7 +61,7 @@ export function eventsIcs(events, { remindersByEvent = {}, name = 'Meu Assistent
 }
 
 // ---------------------------------------------------------------- Backup / restauração
-const TABLES = ['categories', 'recurrences', 'recurrence_charges', 'expenses', 'events', 'reminders'];
+const TABLES = ['categories', 'recurrences', 'recurrence_charges', 'expenses', 'incomes', 'accounts', 'events', 'reminders'];
 
 export function exportBackup(db, user) {
   const data = { app: 'meu-assistente', version: 1, exported_at: nowUtcIso(), user: { email: user.email, name: user.name, timezone: user.timezone, settings: user.settings } };

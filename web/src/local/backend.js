@@ -9,6 +9,7 @@ import * as fin from '../../../server/finance.js';
 import * as rec from '../../../server/recurring.js';
 import * as ag from '../../../server/agenda.js';
 import * as ex from '../../../server/exporters.js';
+import * as cf from '../../../server/cashflow.js';
 import { runCommand, executeAction } from '../../../server/nlp/execute.js';
 import { toCents } from '../../../server/money.js';
 import { today, addDays, isValidZone, nowUtcIso } from '../../../server/time.js';
@@ -98,9 +99,10 @@ on('GET', '/api/dashboard', ({ db, user }) => {
     stats: fin.financeStats(db, user, { forecastFn: (a, b) => rec.forecast(db, user, a, b) }),
     recurring: rec.recurringTotals(db, user),
     upcoming_charges: rec.forecast(db, user, t, addDays(t, 14)).filter((o) => o.status !== 'paid').slice(0, 8),
-    pending_charges: db.prepare(`SELECT ch.*, r.name FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id WHERE ch.user_id=? AND ch.status='pending' ORDER BY ch.due_date`).all(USER_ID),
+    pending_charges: db.prepare(`SELECT ch.*, r.name, r.direction FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id WHERE ch.user_id=? AND ch.status='pending' ORDER BY ch.due_date`).all(USER_ID),
     upcoming_events: ag.upcomingEvents(db, user, 6),
     recent_expenses: fin.listExpenses(db, USER_ID, { limit: 6 }),
+    cashflow: { balance: cf.balanceSummary(db, user), month: cf.periodSummary(db, user, { start: `${t.slice(0, 8)}01`, end: t }) },
   };
 });
 
@@ -164,6 +166,13 @@ on('POST', '/api/events/:id/complete', ({ db, user, params }) => ag.updateEvent(
 on('POST', '/api/events/:id/reopen', ({ db, user, params }) => ag.updateEvent(db, user, Number(params.id), { status: 'scheduled' }));
 on('DELETE', '/api/events/:id', ({ db, user, params }) => ag.deleteEvent(db, user, Number(params.id)));
 on('POST', '/api/events/:id/restore', ({ db, user, params }) => ag.restoreEvent(db, user, Number(params.id)));
+
+on('GET', '/api/incomes', ({ db, query }) => { const list = cf.listIncomes(db, USER_ID, { start: query.start, end: query.end }); return { incomes: list, total_cents: list.reduce((a, i) => a + i.amount_cents, 0) }; });
+on('POST', '/api/incomes', ({ db, user, body }) => cf.createIncome(db, user, { ...body, amount_cents: toCents(body.amount), source: 'manual' }));
+on('DELETE', '/api/incomes/:id', ({ db, user, params }) => cf.deleteIncome(db, user, Number(params.id)));
+on('GET', '/api/accounts', ({ db, user }) => cf.balanceSummary(db, user));
+on('POST', '/api/accounts', ({ db, user, body }) => cf.setAccountBalance(db, user, { name: body.name, amount_cents: toCents(body.balance) }));
+on('DELETE', '/api/accounts/:id', ({ db, user, params }) => cf.deleteAccount(db, user, Number(params.id)));
 
 on('GET', '/api/search', ({ db, query }) => {
   const q = String(query.q || '').trim();

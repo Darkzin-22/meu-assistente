@@ -10,6 +10,13 @@ Um app pessoal para o iPhone (e o computador) em que você **segura o microfone,
 
 Esta é a **versão local**: roda inteira no iPhone, sem servidor e sem custo. Os dados ficam só no aparelho (faça backups em Ajustes). Os lembretes funcionam pelo **Calendário do iPhone**: ao criar um compromisso, toque em **Adicionar ao Calendário** para ativar os 4 alarmes.
 
+## 🎙️ Jarvis (pela Siri, sem abrir o app)
+
+Diga **"E aí Siri, Jarvis"** e fale: registra despesas e entradas, informa saldo e quanto sobrou, cuida da agenda e responde perguntas gerais (IA da Apple). Precisa da versão com servidor, que dá para hospedar de graça na Oracle Cloud:
+
+1. **[docs/ORACLE.md](docs/ORACLE.md)** — criar o servidor gratuito (instalação automática).
+2. **[docs/JARVIS.md](docs/JARVIS.md)** — criar o atalho "Jarvis" na Siri.
+
 Existem duas versões do mesmo código:
 
 | | Versão local (GitHub Pages) | Versão com servidor (Fly.io etc.) |
@@ -17,6 +24,8 @@ Existem duas versões do mesmo código:
 | Custo | **Grátis** | ≈ US$ 2–4/mês |
 | Onde ficam os dados | No iPhone | No servidor (sincroniza iPhone e computador) |
 | Lembretes | Alarmes do Calendário do iPhone (1 toque por compromisso) | Notificações automáticas do app |
+| Jarvis (Siri) | — | ✅ |
+| Hospedagem | GitHub Pages | Oracle Cloud Always Free (grátis) ou Fly.io |
 | Interpretação | Local em português | Local ou IA Claude |
 | Exportação | CSV e backup | CSV, Excel e backup |
 
@@ -210,13 +219,13 @@ Legenda: ✅ implementado e testado automaticamente · 🟡 implementado, teste 
 ## 6. Testes
 
 ```bash
-npm test            # 53 testes: interpretador, API completa, push real, IA (simulada)
+npm test            # 63 testes: interpretador, API completa, push real, IA (simulada)
 ```
 ```bash
 npm run build
 ```
 ```bash
-npm run e2e         # 16 etapas no navegador emulando um iPhone; gera docs/screenshots/
+npm run e2e         # 18 etapas no navegador emulando um iPhone; gera docs/screenshots/
 ```
 ```bash
 npm run build:local && npm run e2e:local   # versão local servida como no GitHub Pages (11 etapas)

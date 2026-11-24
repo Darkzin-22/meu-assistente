@@ -366,3 +366,7 @@ select { -webkit-appearance: none; appearance: none; background-image: linear-gr
   .page { padding: 0 24px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+.pad-row { padding: 0 14px 12px; justify-content: flex-start; margin-top: 0; }
+.copy-row { display: flex; gap: 8px; align-items: center; }
+.copy-row code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; background: var(--fill2); padding: 9px 10px; border-radius: 10px; }

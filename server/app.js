@@ -16,6 +16,8 @@ import * as push from './push.js';
 import * as ex from './exporters.js';
 import { expensesXlsx } from './xlsx.js';
 import { runCommand, executeAction, aiMode, _engineInfo } from './nlp/execute.js';
+import * as cf from './cashflow.js';
+import * as jarvis from './jarvis.js';
 import { transcribe, transcriptionAvailable } from './transcribe.js';
 import { toCents } from './money.js';
 import { today, addDays, isValidZone } from './time.js';
@@ -52,6 +54,13 @@ export async function buildApp(db, { logger = false, serveStatic = true } = {}) 
   // Proteção CSRF: mutações exigem o cabeçalho X-Requested-With (formulários de outros sites não conseguem enviá-lo).
   app.addHook('preHandler', async (req, reply) => {
     if (!req.url.startsWith('/api/')) return;
+    // Jarvis (atalho da Siri): autenticado por chave no cabeçalho Authorization, sem cookie (por isso não precisa da proteção CSRF).
+    if (req.routeOptions.url === '/api/jarvis') {
+      const uid = jarvis.userIdFromToken(db, req.headers.authorization);
+      if (!uid) return reply.code(401).send({ resposta: 'Chave do Jarvis inválida. Gere uma nova em Ajustes do app.', entendeu: true, aguardando: false, modo: 'assistente', continuar: 'nao' });
+      req.user = auth.loadUser(db, uid);
+      return;
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD' && req.headers['x-requested-with'] !== 'fetch') {
       return reply.code(403).send({ error: 'Requisição bloqueada.' });
     }
@@ -155,7 +164,7 @@ export async function buildApp(db, { logger = false, serveStatic = true } = {}) 
     rec.materializeCharges(db, u);
     const t = today(u.timezone);
     const stats = fin.financeStats(db, u, { forecastFn: (a, b) => rec.forecast(db, u, a, b) });
-    const pending = db.prepare(`SELECT ch.*, r.name FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id WHERE ch.user_id=? AND ch.status='pending' ORDER BY ch.due_date`).all(u.id);
+    const pending = db.prepare(`SELECT ch.*, r.name, r.direction FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id WHERE ch.user_id=? AND ch.status='pending' ORDER BY ch.due_date`).all(u.id);
     return {
       stats,
       recurring: rec.recurringTotals(db, u),
@@ -163,6 +172,7 @@ export async function buildApp(db, { logger = false, serveStatic = true } = {}) 
       pending_charges: pending,
       upcoming_events: ag.upcomingEvents(db, u, 6),
       recent_expenses: fin.listExpenses(db, u.id, { limit: 6 }),
+      cashflow: { balance: cf.balanceSummary(db, u), month: cf.periodSummary(db, u, { start: `${t.slice(0, 8)}01`, end: t }) },
     };
   });
 
@@ -263,6 +273,27 @@ export async function buildApp(db, { logger = false, serveStatic = true } = {}) 
     reply.header('Content-Type', 'text/calendar; charset=utf-8');
     return ex.eventsIcs(events, { remindersByEvent: rem, name: 'Agenda — Meu Assistente' });
   });
+
+  // ---------------------------------------------------------------- rendimentos e saldo
+  app.get('/api/incomes', async (req) => {
+    const list = cf.listIncomes(db, req.user.id, { start: req.query.start, end: req.query.end });
+    return { incomes: list, total_cents: list.reduce((s, i) => s + i.amount_cents, 0) };
+  });
+  app.post('/api/incomes', async (req) => cf.createIncome(db, req.user, { ...req.body, amount_cents: toCents(req.body?.amount), source: 'manual' }));
+  app.patch('/api/incomes/:id', async (req) => cf.updateIncome(db, req.user, Number(req.params.id), { ...req.body, amount_cents: req.body?.amount !== undefined ? toCents(req.body.amount) : undefined }));
+  app.delete('/api/incomes/:id', async (req) => cf.deleteIncome(db, req.user, Number(req.params.id)));
+  app.get('/api/accounts', async (req) => cf.balanceSummary(db, req.user));
+  app.post('/api/accounts', async (req) => cf.setAccountBalance(db, req.user, { name: req.body?.name, amount_cents: toCents(req.body?.balance) }));
+  app.delete('/api/accounts/:id', async (req) => cf.deleteAccount(db, req.user, Number(req.params.id)));
+
+  // ---------------------------------------------------------------- Jarvis (Siri)
+  app.post('/api/jarvis', { config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
+    const text = req.body?.texto ?? req.body?.text ?? '';
+    return jarvis.handleUtterance(db, req.user, text);
+  });
+  app.get('/api/jarvis/status', async (req) => ({ ...jarvis.tokenStatus(db, req.user.id), url: `${config.publicUrl || `${req.protocol}://${req.headers.host}`}/api/jarvis` }));
+  app.post('/api/jarvis/token', async (req) => ({ token: jarvis.createToken(db, req.user.id) }));
+  app.delete('/api/jarvis/token', async (req) => { jarvis.revokeToken(db, req.user.id); return { ok: true }; });
 
   // ---------------------------------------------------------------- busca global
   app.get('/api/search', async (req) => {

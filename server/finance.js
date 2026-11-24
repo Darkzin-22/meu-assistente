@@ -282,7 +282,7 @@ export function financeStats(db, user, { forecastFn } = {}) {
   // Despesas já lançadas com data futura dentro do mês (ex.: parcelas).
   const futureLogged = db.prepare(`SELECT COALESCE(SUM(amount_cents),0) s FROM expenses WHERE user_id=? AND deleted_at IS NULL AND date > ? AND date <= ?`).get(user.id, t, m.end).s;
   const upcoming = forecastFn ? forecastFn(t, m.end) : [];
-  const recurringForecast = upcoming.filter((o) => o.status !== 'paid').reduce((a, o) => a + o.amount_cents, 0);
+  const recurringForecast = upcoming.filter((o) => o.status !== 'paid' && o.direction !== 'income').reduce((a, o) => a + o.amount_cents, 0);
   const month_cents = sumTo(m);
 
   return {
@@ -300,7 +300,7 @@ export function financeStats(db, user, { forecastFn } = {}) {
       logged_future_cents: futureLogged,
       recurring_pending_cents: recurringForecast,
       month_close_cents: month_cents + futureLogged + recurringForecast,
-      items: upcoming,
+      items: upcoming.filter((o) => o.direction !== 'income'),
     },
     budgets: budgetStatus(db, user, t),
   };

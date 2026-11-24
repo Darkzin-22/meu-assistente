@@ -113,16 +113,17 @@ export function createRecurrence(db, user, input, source = 'manual') {
     interval: Number(input.interval) || 1,
     anchor_date: input.anchor_date || (input.day_of_month ? anchorFromDay(Number(input.day_of_month), tz, input.month || null) : today(tz)),
     kind: input.kind === 'fixed' ? 'fixed' : 'subscription',
+    direction: input.direction === 'income' ? 'income' : 'expense',
     auto_confirm: input.auto_confirm ? 1 : 0,
     notes: input.notes || null,
   };
-  r.category_id = input.category_id ?? categoryIdOrDefault(db, user.id, 'expense', input.category || (r.kind === 'subscription' ? 'assinaturas' : 'contas'));
+  r.category_id = r.direction === 'income' ? null : input.category_id ?? categoryIdOrDefault(db, user.id, 'expense', input.category || (r.kind === 'subscription' ? 'assinaturas' : 'contas'));
   validate(r);
   const dup = findRecurrenceByName(db, user.id, r.name).find((x) => norm(x.name) === norm(r.name));
   if (dup) throw new AppError(`Já existe "${dup.name}" cadastrada. Use "alterar" para mudar valor ou data.`, 409, 'duplicate');
   const ts = nowUtcIso();
-  const info = db.prepare(`INSERT INTO recurrences (user_id, name, amount_cents, category_id, kind, frequency, interval, anchor_date, active_from, auto_confirm, notes, created_at, updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(user.id, r.name, r.amount_cents, r.category_id, r.kind, r.frequency, r.interval, r.anchor_date, r.anchor_date, r.auto_confirm, r.notes, ts, ts);
+  const info = db.prepare(`INSERT INTO recurrences (user_id, name, amount_cents, category_id, kind, direction, frequency, interval, anchor_date, active_from, auto_confirm, notes, created_at, updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(user.id, r.name, r.amount_cents, r.category_id, r.kind, r.direction, r.frequency, r.interval, r.anchor_date, r.anchor_date, r.auto_confirm, r.notes, ts, ts);
   audit(db, user.id, 'recurrence', info.lastInsertRowid, 'create', null, r, source);
   materializeCharges(db, user);
   return getRecurrence(db, user.id, info.lastInsertRowid);
@@ -211,16 +212,30 @@ export function materializeCharges(db, user, upTo = today(user.timezone)) {
 }
 
 function getCharge(db, userId, id) {
-  return db.prepare(`SELECT ch.*, r.name, r.category_id FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id WHERE ch.id=? AND ch.user_id=?`).get(id, userId);
+  return db.prepare(`SELECT ch.*, r.name, r.category_id, r.direction FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id WHERE ch.id=? AND ch.user_id=?`).get(id, userId);
 }
 
 /** Confirma o pagamento: a cobrança vira uma despesa realizada (uma única vez). */
 export function confirmCharge(db, user, chargeId, { amount_cents, date } = {}, source = 'manual') {
   const ch = getCharge(db, user.id, chargeId);
   if (!ch) throw notFound('Cobrança');
-  if (ch.status === 'paid') return { charge: ch, expense: getExpense(db, user.id, ch.expense_id), already: true };
+  if (ch.status === 'paid') {
+    if (ch.direction === 'income') return { charge: ch, income: db.prepare(`SELECT * FROM incomes WHERE charge_id=?`).get(ch.id), already: true };
+    return { charge: ch, expense: getExpense(db, user.id, ch.expense_id), already: true };
+  }
   const ts = nowUtcIso();
   const amount = amount_cents || ch.amount_cents;
+  if (ch.direction === 'income') {
+    // Salário/renda recorrente: vira uma entrada.
+    let incomeId;
+    db.transaction(() => {
+      incomeId = db.prepare(`INSERT INTO incomes (user_id, description, amount_cents, date, source, charge_id, created_at) VALUES (?,?,?,?,?,?,?)`)
+        .run(user.id, ch.name, amount, date || ch.due_date, 'recurring', ch.id, ts).lastInsertRowid;
+      db.prepare(`UPDATE recurrence_charges SET status='paid', paid_at=?, amount_cents=? WHERE id=?`).run(ts, amount, ch.id);
+      audit(db, user.id, 'charge', ch.id, 'confirm', ch, { amount_cents: amount, income_id: incomeId }, source);
+    })();
+    return { charge: getCharge(db, user.id, chargeId), income: db.prepare(`SELECT * FROM incomes WHERE id=?`).get(incomeId) };
+  }
   let expenseId;
   db.transaction(() => {
     expenseId = db.prepare(`INSERT INTO expenses (user_id, description, amount_cents, category_id, date, source, charge_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
@@ -295,25 +310,27 @@ export function chargeHistory(db, userId, recId) {
  */
 export function forecast(db, user, from, to) {
   const out = [];
-  const charges = db.prepare(`SELECT ch.*, r.name, r.kind, r.category_id, c.name category_name, c.icon category_icon, c.color category_color
+  const charges = db.prepare(`SELECT ch.*, r.name, r.kind, r.direction, r.category_id, c.name category_name, c.icon category_icon, c.color category_color
     FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id LEFT JOIN categories c ON c.id=r.category_id
     WHERE ch.user_id=? AND ch.due_date BETWEEN ? AND ? AND ch.status != 'skipped'`).all(user.id, from, to);
   const seen = new Set(charges.map((c) => `${c.recurrence_id}|${c.due_date}`));
-  for (const c of charges) out.push({ recurrence_id: c.recurrence_id, charge_id: c.id, name: c.name, kind: c.kind, due_date: c.due_date, amount_cents: c.amount_cents, status: c.status, category_name: c.category_name, category_icon: c.category_icon, category_color: c.category_color });
+  for (const c of charges) out.push({ recurrence_id: c.recurrence_id, charge_id: c.id, name: c.name, kind: c.kind, direction: c.direction, due_date: c.due_date, amount_cents: c.amount_cents, status: c.status, category_name: c.category_name, category_icon: c.category_icon, category_color: c.category_color });
   const t = today(user.timezone);
   const recs = db.prepare(`${REC_SELECT} WHERE r.user_id=? AND r.status='active'`).all(user.id);
   for (const r of recs) {
     const start = [from, r.active_from, DateTime.fromISO(t).plus({ days: 1 }).toISODate()].sort().pop();
     for (const d of occurrences(r, start, to)) {
       if (seen.has(`${r.id}|${d}`)) continue;
-      out.push({ recurrence_id: r.id, charge_id: null, name: r.name, kind: r.kind, due_date: d, amount_cents: r.amount_cents, status: 'forecast', category_name: r.category_name, category_icon: r.category_icon, category_color: r.category_color });
+      out.push({ recurrence_id: r.id, charge_id: null, name: r.name, kind: r.kind, direction: r.direction, due_date: d, amount_cents: r.amount_cents, status: 'forecast', category_name: r.category_name, category_icon: r.category_icon, category_color: r.category_color });
     }
   }
   return out.sort((a, b) => a.due_date.localeCompare(b.due_date) || a.name.localeCompare(b.name));
 }
 
 export function recurringTotals(db, user) {
-  const recs = db.prepare(`${REC_SELECT} WHERE r.user_id=? AND r.status='active'`).all(user.id);
+  const all = db.prepare(`${REC_SELECT} WHERE r.user_id=? AND r.status='active'`).all(user.id);
+  const recs = all.filter((r) => r.direction !== 'income');
+  const incomeRecs = all.filter((r) => r.direction === 'income');
   const sum = (arr) => Math.round(arr.reduce((a, r) => a + monthlyEquivalent(r), 0));
   const subs = recs.filter((r) => r.kind === 'subscription');
   const fixed = recs.filter((r) => r.kind === 'fixed');
@@ -328,5 +345,6 @@ export function recurringTotals(db, user) {
     all_monthly_cents: sum(recs),
     all_yearly_cents: sum(recs) * 12,
     count_active: recs.length,
+    income_monthly_cents: sum(incomeRecs),
   };
 }
