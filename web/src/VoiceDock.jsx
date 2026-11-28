@@ -185,7 +185,7 @@ export default function VoiceDock() {
         {voice.state === 'transcribing' && <div className="live-bubble"><Spinner size={14} /> Transcrevendo…</div>}
         <form className="dock-input" onSubmit={(e) => { e.preventDefault(); submit(text); }}>
           <Sparkles size={18} className="dock-spark" />
-          <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} placeholder="Diga ou digite: gastei 20 no almoço…" enterKeyHint="send" aria-label="Comando de texto" />
+          <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} placeholder="Fale com o Jarvis…" enterKeyHint="send" aria-label="Comando de texto" />
           {text && <button className="dock-send" aria-label="Enviar"><SendHorizontal size={18} /></button>}
         </form>
         <button
@@ -198,7 +198,7 @@ export default function VoiceDock() {
         </button>
       </div>
 
-      <Sheet open={!!sheet} onClose={() => { setSheet(null); setEditing(false); }} title="Assistente">
+      <Sheet open={!!sheet} onClose={() => { setSheet(null); setEditing(false); }} title="Jarvis">
         {sheet && (
           <div className="assistant">
             <div className="transcript">

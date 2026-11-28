@@ -137,3 +137,27 @@ test('consultas de agenda por voz', async () => {
 test('texto para fala fica limpo', () => {
   assert.equal(toSpeech('Você tem 2 compromissos:\n• Mercado — hoje às 16:00\n• Dentista — amanhã às 10:00'), 'Você tem 2 compromissos: Mercado, hoje às 16:00. Dentista, amanhã às 10:00.');
 });
+
+test('personalidade: bom dia traz o resumo do dia; conversa simpática', async () => {
+  setNow('2026-12-03T08:00:00-03:00');
+  try {
+    let r = await jarvis('Bom dia, Jarvis');
+    assert.equal(r.modo, 'assistente');
+    assert.match(r.resposta, /^Bom dia, Eduardo\./);
+    assert.match(r.resposta, /Hoje você tem um compromisso: Reunião com cliente às 09:00\./);
+    assert.match(r.resposta, /Neste mês você gastou R\$/);
+    assert.match(r.resposta, /saldo estimado/);
+    assert.match(r.resposta, /Em que posso ajudar\?$/);
+    r = await jarvis('Obrigado!');
+    assert.match(r.resposta, /Disponha|Sempre às ordens|Por nada/);
+    r = await jarvis('Quem é você?');
+    assert.match(r.resposta, /Sou o Jarvis/);
+    r = await jarvis('Tudo bem?');
+    assert.equal(r.modo, 'assistente');
+    // "bom dia" seguido de um comando executa o comando
+    r = await jarvis('Bom dia, gastei 20 reais no café');
+    assert.match(r.resposta, /Registrado: Café, R\$\s?20,00/);
+  } finally {
+    setNow('2026-11-23T09:00:00-03:00');
+  }
+});

@@ -9,6 +9,7 @@ export const ACTION_TYPES = [
   'create_event', 'update_event', 'cancel_event', 'complete_event',
   'create_income', 'set_balance', 'query_balance', 'query_income',
   'query_expenses', 'query_events', 'query_recurrences', 'forecast', 'search',
+  'briefing', 'small_talk',
   'clarify',
 ];
 

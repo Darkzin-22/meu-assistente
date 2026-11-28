@@ -425,9 +425,38 @@ export function parseLocal(text, ctx) {
       n = t.n;
     }
   }
+  // Valores seguintes sem "reais" numa lista de gastos: "20 reais no lanche e 35 de gasolina".
+  if (money.length && /\b(gastei|comprei|paguei|gastamos|compramos|pagamos)\b/.test(n)) {
+    const re = new RegExp(`(?:,|\\be|\\bmais)\\s+${NUM}(?=\\s+(?:de|em|no|na|num|numa|com|pra|para|pro)\\s)`, 'g');
+    const hits = [...n.matchAll(re)].filter((m) => !money.some((x) => m.index >= x.index && m.index < x.end));
+    for (const m of hits.reverse()) {
+      const numStart = m.index + m[0].lastIndexOf(m[1]);
+      t.replace(numStart, numStart + m[1].length, `${m[1]} reais`);
+    }
+    if (hits.length) { n = t.n; money = findMoney(n); }
+  }
   const isQuestion = Q_START.test(n) || /\?\s*$/.test(n);
 
   if (!n.trim()) return { actions: [action('clarify', { question: 'Não entendi. Pode repetir?' })] };
+
+  // ---------------- Conversa e resumo do dia (personalidade do Jarvis) ----------------
+  const plain = n.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim().replace(/^(ok |ei |hey )?jarvis\s*/, '');
+  if (/^(muito )?(obrigad[oa]|valeu|vlw|brigad[oa]|agradeco|grato|grata)\b/.test(plain)) return { actions: [action('small_talk', { text: 'thanks' })] };
+  if (/^(tchau|ate mais|ate logo|ate amanha|falou|boa noite e ate)\b/.test(plain)) return { actions: [action('small_talk', { text: 'bye' })] };
+  if (/^(quem e voce|quem voce e|qual (e )?(o )?seu nome|o que voce (faz|e))\b/.test(plain)) return { actions: [action('small_talk', { text: 'who' })] };
+  if (/^((e )?(tudo|td) (bem|bom|certo|joia|tranquilo)|como (voce )?(esta|vai)( voce)?|como vai|beleza)\s*$/.test(plain)) return { actions: [action('small_talk', { text: 'howareyou' })] };
+  const greet = /^(bom dia|boa tarde|boa noite|oi|ola|e ai|eai|fala|opa|hey|salve)\b\s*(jarvis)?\s*/;
+  const asksSummary = /\b(resumo|como (esta|vai|ta) (o )?meu dia|o que (eu )?tenho (pra|para) hoje|minha agenda de hoje|novidades|status|me atualiza|me atualize)\b/;
+  if (greet.test(plain)) {
+    const rest = plain.replace(greet, '').replace(/^(tudo bem|tudo bom|como vai)\s*/, '').trim();
+    if (!rest || asksSummary.test(rest) || rest.split(' ').length <= 1) return { actions: [action('briefing')] };
+    // Cumprimento seguido de comando: remove o cumprimento e segue interpretando ("Bom dia, gastei 20 no café").
+    t.cut(/^\s*(?:(?:ok|ei|hey)\s+)?(?:jarvis[\s,!.]*)?(?:bom dia|boa tarde|boa noite|oi|ola|e ai|eai|fala|opa|hey|salve)[\s,!.]*(?:jarvis[\s,!.]*)?/);
+    n = t.n;
+    money = findMoney(n);
+  } else if (asksSummary.test(plain) && !money.length) {
+    return { actions: [action('briefing')] };
+  }
 
   // ---------------- Consultas ----------------
   if (/^\s*(?:procure|procura|pesquise|pesquisa|busque|busca|buscar|encontre|encontra|ache|acha|localize)\b/.test(n)) {

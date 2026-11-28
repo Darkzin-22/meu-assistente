@@ -371,6 +371,42 @@ export function executeAction(db, user, input, { confirmed = false, source = 'te
       if (upcoming.length) msg += `\nAinda vai entrar: ${upcoming.map((o) => `${o.name} ${brl(o.amount_cents)} (${dateLabel(o.due_date, tz)})`).join(', ')}.`;
       return answer(msg, { ...sm, incomes: list });
     }
+    // ------------------------------------------------------------ personalidade
+    case 'briefing': {
+      const first = (user.name || '').split(' ')[0] || '';
+      const nowL = now(tz);
+      const greet = nowL.hour < 12 ? 'Bom dia' : nowL.hour < 18 ? 'Boa tarde' : 'Boa noite';
+      const t = today(tz);
+      const parts = [`${greet}${first ? `, ${first}` : ''}.`];
+      const hhmm = nowL.toFormat('HH:mm');
+      const todayEvs = ag.listEvents(db, user.id, { start: t, end: t }).filter((e) => e.status === 'scheduled' && (!e.time || e.time >= hhmm));
+      if (todayEvs.length) parts.push(`Hoje você tem ${todayEvs.length === 1 ? 'um compromisso' : `${todayEvs.length} compromissos`}: ${todayEvs.slice(0, 4).map((e) => `${e.title}${e.time ? ` às ${e.time}` : ''}`).join(', ')}.`);
+      else parts.push('Sua agenda está livre pelo resto do dia.');
+      const tomorrow = ag.listEvents(db, user.id, { start: addDays(t, 1), end: addDays(t, 1) }).filter((e) => e.status === 'scheduled');
+      if (tomorrow.length) parts.push(`Amanhã: ${tomorrow.slice(0, 3).map((e) => `${e.title}${e.time ? ` às ${e.time}` : ''}`).join(', ')}.`);
+      rec.materializeCharges(db, user);
+      const due = db.prepare(`SELECT ch.amount_cents, r.name, r.direction FROM recurrence_charges ch JOIN recurrences r ON r.id=ch.recurrence_id WHERE ch.user_id=? AND ch.status='pending' AND ch.due_date <= ? AND r.direction != 'income'`).all(user.id, t);
+      if (due.length) parts.push(`Contas aguardando pagamento: ${due.slice(0, 3).map((c) => `${c.name}, ${brl(c.amount_cents)}`).join('; ')}.`);
+      const m = fin.sumExpenses(db, user.id, { start: DateTime.fromISO(t).startOf('month').toISODate(), end: t }).total_cents;
+      parts.push(`Neste mês você gastou ${brl(m)}.`);
+      const b = cf.balanceSummary(db, user);
+      if (b.accounts.length) parts.push(`Seu saldo estimado é ${brl(b.estimated_cents)}.`);
+      const over = fin.budgetStatus(db, user, t).filter((x) => x.pct >= 1);
+      if (over.length) parts.push(`Atenção: o orçamento de ${over.map((x) => x.name).join(' e ')} foi ultrapassado.`);
+      parts.push('Em que posso ajudar?');
+      return answer(parts.join(' '), { events: todayEvs, due });
+    }
+    case 'small_talk': {
+      const first = (user.name || '').split(' ')[0] || '';
+      const pick = (arr) => arr[Math.floor(Date.now() / 1000) % arr.length];
+      const lines = {
+        thanks: [`Disponha${first ? `, ${first}` : ''}. Estou sempre por aqui.`, 'Sempre às ordens.', `Por nada${first ? `, ${first}` : ''}. É um prazer ajudar.`],
+        howareyou: [`Tudo funcionando perfeitamente${first ? `, ${first}` : ''}. E com você, como está o dia?`, 'Sistemas operando a cem por cento. Em que posso ajudar?'],
+        who: ['Sou o Jarvis, seu assistente pessoal. Cuido das suas finanças, da sua agenda e respondo o que você precisar.'],
+        bye: [`Até mais${first ? `, ${first}` : ''}. Estarei aqui quando precisar.`, 'Até logo. Qualquer coisa, é só chamar.'],
+      };
+      return answer(pick(lines[a.text] || lines.howareyou));
+    }
     case 'search': {
       const q = a.text || '';
       const exps = fin.listExpenses(db, user.id, { q, limit: 20 });

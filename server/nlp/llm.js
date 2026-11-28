@@ -50,6 +50,8 @@ Tipos de ação:
 - query_recurrences: perguntas sobre assinaturas/despesas fixas. kind (subscription|fixed|null), category, within_days (para "vencem nos próximos N dias").
 - forecast: "quanto vou gastar…", previsão de despesas futuras. period {start, end}.
 - search: pesquisa livre. text.
+- briefing: saudação ou pedido de resumo do dia (ex.: "bom dia", "oi Jarvis", "como está meu dia?").
+- small_talk: conversa social curta. text = "thanks" (agradecimento), "howareyou" (tudo bem? como vai?), "who" (quem é você?) ou "bye" (tchau).
 - clarify: quando não for possível entender. question = pergunta curta ao usuário.
 
 Regras de datas (use a data/hora atual fornecida no contexto):

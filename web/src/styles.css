@@ -370,3 +370,62 @@ select { -webkit-appearance: none; appearance: none; background-image: linear-gr
 .pad-row { padding: 0 14px 12px; justify-content: flex-start; margin-top: 0; }
 .copy-row { display: flex; gap: 8px; align-items: center; }
 .copy-row code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 13px; background: var(--fill2); padding: 9px 10px; border-radius: 10px; }
+
+/* ===================== Tema HUD (futurista, inspirado no Jarvis) ===================== */
+[data-theme='dark'] {
+  --bg: #02060D; --bg2: #08121E; --bg3: #0C1B2C; --card: rgba(8, 20, 34, .78); --elev: #0C1B2C;
+  --text: #E6FBFF; --text2: rgba(160, 230, 255, .72); --text3: rgba(160, 230, 255, .38);
+  --sep: rgba(0, 229, 255, .16); --fill: rgba(0, 229, 255, .10); --fill2: rgba(0, 229, 255, .06);
+  --bar: rgba(4, 12, 22, .9); --shadow: 0 0 24px rgba(0, 229, 255, .18);
+  --blue: #00E5FF; --green: #39FFB0; --red: #FF4D6D; --orange: #FFB020; --purple: #7C5CFF;
+}
+[data-theme='dark'] body {
+  background: radial-gradient(120% 60% at 50% -10%, rgba(0, 229, 255, .14), transparent 60%), #02060D;
+  font-family: 'SF Mono', 'Menlo', 'Consolas', ui-monospace, monospace;
+  letter-spacing: .01em;
+}
+[data-theme='dark'] body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image: linear-gradient(rgba(0, 229, 255, .05) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 229, 255, .05) 1px, transparent 1px);
+  background-size: 36px 36px; mask-image: radial-gradient(ellipse at 50% 0%, #000 30%, transparent 75%);
+}
+[data-theme='dark'] .large-title, [data-theme='dark'] .hero-value, [data-theme='dark'] .stat strong, [data-theme='dark'] .sheet-head h2 {
+  font-family: 'Orbitron', 'Eurostile', 'SF Pro Display', system-ui, sans-serif; letter-spacing: .04em; text-shadow: 0 0 18px rgba(0, 229, 255, .35);
+}
+[data-theme='dark'] .large-title { font-size: 30px; text-transform: uppercase; }
+[data-theme='dark'] .group-body, [data-theme='dark'] .card-pad, [data-theme='dark'] .stat, [data-theme='dark'] .week-day, [data-theme='dark'] .rule, [data-theme='dark'] .result {
+  border: 1px solid rgba(0, 229, 255, .22); box-shadow: inset 0 0 22px rgba(0, 229, 255, .05), 0 0 16px rgba(0, 229, 255, .08);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+[data-theme='dark'] .group-title { color: var(--blue); text-shadow: 0 0 10px rgba(0, 229, 255, .5); }
+[data-theme='dark'] .hero-card {
+  background: linear-gradient(145deg, rgba(0, 229, 255, .18), rgba(124, 92, 255, .12)); border: 1px solid rgba(0, 229, 255, .45);
+  box-shadow: 0 0 40px rgba(0, 229, 255, .22), inset 0 0 40px rgba(0, 229, 255, .08);
+}
+[data-theme='dark'] .hero-card::after { background: radial-gradient(circle, rgba(0, 229, 255, .25), transparent 70%); }
+[data-theme='dark'] .mic {
+  background: radial-gradient(circle at 30% 30%, #7FF6FF, #00A6FF 55%, #0040A8);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, .6), 0 0 28px rgba(0, 229, 255, .6), inset 0 0 14px rgba(255, 255, 255, .25);
+}
+[data-theme='dark'] .mic.recording { background: radial-gradient(circle at 30% 30%, #FFB3C0, #FF4D6D 55%, #8A0020); box-shadow: 0 0 36px rgba(255, 77, 109, .7); }
+[data-theme='dark'] .btn.primary { background: linear-gradient(135deg, #00E5FF, #0086FF); color: #02060D; font-weight: 700; box-shadow: 0 0 16px rgba(0, 229, 255, .45); }
+[data-theme='dark'] .tabbar { background: rgba(3, 10, 18, .92); border-top: 1px solid rgba(0, 229, 255, .3); box-shadow: 0 -6px 24px rgba(0, 229, 255, .12); }
+[data-theme='dark'] .tabbar button.active { color: var(--blue); text-shadow: 0 0 12px rgba(0, 229, 255, .8); }
+[data-theme='dark'] .dock-input { border: 1px solid rgba(0, 229, 255, .4); box-shadow: 0 0 18px rgba(0, 229, 255, .18); }
+[data-theme='dark'] .sheet { background: rgba(4, 12, 22, .97); border-top: 1px solid rgba(0, 229, 255, .4); box-shadow: 0 -10px 40px rgba(0, 229, 255, .2); }
+[data-theme='dark'] .sheet .group-body, [data-theme='dark'] .sheet .card-pad, [data-theme='dark'] .sheet .result { background: rgba(8, 20, 34, .9); }
+[data-theme='dark'] .toast { background: rgba(8, 20, 34, .95); border: 1px solid rgba(0, 229, 255, .4); }
+[data-theme='dark'] .live-bubble { background: rgba(8, 20, 34, .95); border: 1px solid rgba(0, 229, 255, .4); }
+[data-theme='dark'] .segmented { background: rgba(0, 229, 255, .08); border: 1px solid rgba(0, 229, 255, .2); }
+[data-theme='dark'] .segmented button.active { background: rgba(0, 229, 255, .22); color: var(--text); box-shadow: 0 0 12px rgba(0, 229, 255, .35); }
+[data-theme='dark'] .day.today .day-num, [data-theme='dark'] .week-day.today .num { color: var(--blue); text-shadow: 0 0 10px var(--blue); }
+[data-theme='dark'] .day.sel .day-num { background: var(--blue); color: #02060D; box-shadow: 0 0 12px var(--blue); }
+[data-theme='dark'] input, [data-theme='dark'] select, [data-theme='dark'] textarea { border: 1px solid rgba(0, 229, 255, .2); background: rgba(0, 229, 255, .05); }
+[data-theme='dark'] input:focus, [data-theme='dark'] select:focus, [data-theme='dark'] textarea:focus { border-color: var(--blue); box-shadow: 0 0 12px rgba(0, 229, 255, .35); }
+[data-theme='dark'] .bar.sel .bar-fill { background: linear-gradient(var(--blue), #7C5CFF); box-shadow: 0 0 12px rgba(0, 229, 255, .6); }
+[data-theme='dark'] .topbar { background: linear-gradient(#02060D 60%, transparent); }
+[data-theme='dark'] .topbar::after { content: 'J.A.R.V.I.S  ●  ONLINE'; position: absolute; left: 50%; transform: translateX(-50%); top: 14px; font-size: 11px; letter-spacing: .25em; color: var(--blue); opacity: .75; text-shadow: 0 0 8px rgba(0, 229, 255, .6); }
+[data-theme='dark'] .topbar { position: sticky; }
+[data-theme='dark'] .dock-input input, [data-theme='dark'] .dock-input input:focus { border: 0; background: none; box-shadow: none; }
+[data-theme='dark'] .tabbar { background: #030A12; }
+[data-theme='dark'] .hero-chips div { background: rgba(0, 229, 255, .10); border: 1px solid rgba(0, 229, 255, .25); }

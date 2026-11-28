@@ -84,7 +84,7 @@ await step('Primeira abertura pede só o nome (sem e-mail/senha)', async () => {
   await page.screenshot({ path: path.join(SHOTS, 'local-00-inicio.png') });
   await page.click('button:has-text("Começar")');
   await page.waitForSelector('.hero-card');
-  assert.match(await page.locator('.large-title').innerText(), /Eduardo/);
+  assert.match(await page.locator('.large-title').innerText(), /Eduardo/i);
 });
 
 await step('Despesa por texto', async () => {
