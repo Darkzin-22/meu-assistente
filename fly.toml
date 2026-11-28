@@ -1,27 +1,28 @@
-# Deploy na Fly.io: `fly launch --no-deploy` (aceite este arquivo), depois
-# `fly volumes create dados --size 1` e `fly deploy`.
-app = "meu-assistente"   # substituído pelo FLY_APP_NAME na publicação automática
-primary_region = "gru"   # São Paulo
+# fly.toml app configuration file generated for jarvis-eduardo-2026 on 2026-11-28T15:01:32Z
+#
+# See https://docs.fly.io/reference/configuration for information about how to use this file.
+#
+
+app = 'jarvis-eduardo-2026'
+primary_region = 'gru'
 
 [build]
-
 [env]
-  NODE_ENV = "production"
-  DATA_DIR = "/data"
-  DEFAULT_TIMEZONE = "America/Sao_Paulo"
+  DATA_DIR = '/data'
+  DEFAULT_TIMEZONE = 'America/Sao_Paulo'
+  NODE_ENV = 'production'
 
 [[mounts]]
-  source = "dados"
-  destination = "/data"
+  source = 'dados'
+  destination = '/data'
 
 [http_service]
   internal_port = 3000
   force_https = true
-  # O servidor precisa ficar SEMPRE ligado para enviar os lembretes no horário.
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "256mb"
+  size = 'shared-cpu-1x'
+  memory = '256mb'
